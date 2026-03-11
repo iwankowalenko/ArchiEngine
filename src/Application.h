@@ -1,10 +1,12 @@
 #pragma once
 
+#include <filesystem>
 #include <memory>
 
 #include "DeltaTimer.h"
+#include "ECS.h"
+#include "ECSComponents.h"
 #include "GameStateMachine.h"
-#include "Math2D.h"
 #include "RenderAdapter.h"
 
 namespace archi
@@ -27,21 +29,38 @@ namespace archi
         IRenderAdapter& Renderer() { return *m_renderer; }
         const IRenderAdapter& Renderer() const { return *m_renderer; }
 
+        World& SceneWorld() { return m_world; }
+        const World& SceneWorld() const { return m_world; }
+
+        Entity ControlledEntity() const { return m_controlledEntity; }
+        Transform* ControlledTransform();
+        const Transform* ControlledTransform() const;
+
+        void SetSceneUpdateEnabled(bool enabled) { m_sceneUpdateEnabled = enabled; }
+        bool IsSceneUpdateEnabled() const { return m_sceneUpdateEnabled; }
+        void ResetControlledEntityTransform();
+        Entity FindEntityByTag(const char* name) const;
+        bool SaveScene();
+        bool LoadScene();
+
         GameStateMachine& States() { return m_states; }
         const GameStateMachine& States() const { return m_states; }
 
-        Transform2D& TestTransform() { return m_testTransform; }
-        const Transform2D& TestTransform() const { return m_testTransform; }
-
     private:
+        void BuildDemoScene();
+        void RefreshSceneBindings();
+        bool LoadOrCreateScene();
+
         bool m_initialized = false;
         bool m_quitRequested = false;
+        bool m_sceneUpdateEnabled = true;
 
         std::unique_ptr<IRenderAdapter> m_renderer{};
         GameStateMachine m_states{};
         DeltaTimer m_timer{};
-
-        Transform2D m_testTransform{};
+        World m_world{};
+        Entity m_controlledEntity{};
+        std::filesystem::path m_scenePath{};
     };
 }
 

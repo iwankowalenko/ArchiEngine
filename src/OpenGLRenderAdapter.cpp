@@ -1,59 +1,188 @@
 #include "OpenGLRenderAdapter.h"
 
+#include "AssetPaths.h"
 #include "Logger.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
 #include <array>
-#include <fstream>
+#include <cctype>
 #include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <vector>
 
 namespace archi
 {
-    static unsigned int CreateTriangleVaoForCurrentContext(unsigned int vbo)
+    namespace
     {
-        unsigned int vao = 0;
-        glGenVertexArrays(1, &vao);
-        glBindVertexArray(vao);
+        using MeshBuffer = OpenGLRenderAdapter::MeshBuffer;
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+        unsigned int CreateMeshVbo(const float* vertices, std::size_t floatCount)
+        {
+            unsigned int vbo = 0;
+            glGenBuffers(1, &vbo);
+            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(floatCount * sizeof(float)), vertices, GL_STATIC_DRAW);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            return vbo;
+        }
 
-        glBindVertexArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        return vao;
+        unsigned int CreateVaoForCurrentContext(const MeshBuffer& mesh)
+        {
+            unsigned int vao = 0;
+            glGenVertexArrays(1, &vao);
+            glBindVertexArray(vao);
+            glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo);
+            glEnableVertexAttribArray(0);
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(1);
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+            glBindVertexArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            return vao;
+        }
+
+        MeshBuffer MakeMeshBuffer(const float* vertices, std::size_t floatCount, unsigned int drawMode)
+        {
+            MeshBuffer mesh{};
+            mesh.vbo = CreateMeshVbo(vertices, floatCount);
+            mesh.vertexCount = static_cast<int>(floatCount / 5);
+            mesh.drawMode = drawMode;
+            return mesh;
+        }
+
+        bool ReadBinaryFile(const std::filesystem::path& path, std::vector<unsigned char>& outData)
+        {
+            std::ifstream file(path, std::ios::binary);
+            if (!file)
+                return false;
+
+            file.seekg(0, std::ios::end);
+            const auto size = file.tellg();
+            file.seekg(0, std::ios::beg);
+            if (size <= 0)
+                return false;
+
+            outData.resize(static_cast<std::size_t>(size));
+            file.read(reinterpret_cast<char*>(outData.data()), size);
+            return file.good();
+        }
+
+        bool ReadNextPpmToken(const std::vector<unsigned char>& data, std::size_t& pos, std::string& outToken)
+        {
+            while (pos < data.size())
+            {
+                const unsigned char ch = data[pos];
+                if (std::isspace(ch))
+                {
+                    ++pos;
+                    continue;
+                }
+                if (ch == '#')
+                {
+                    while (pos < data.size() && data[pos] != '\n')
+                        ++pos;
+                    continue;
+                }
+                break;
+            }
+
+            if (pos >= data.size())
+                return false;
+
+            outToken.clear();
+            while (pos < data.size())
+            {
+                const unsigned char ch = data[pos];
+                if (std::isspace(ch) || ch == '#')
+                    break;
+                outToken.push_back(static_cast<char>(ch));
+                ++pos;
+            }
+            return !outToken.empty();
+        }
+
+        bool LoadPpmTextureFile(const std::filesystem::path& path, int& outWidth, int& outHeight, std::vector<unsigned char>& outPixels)
+        {
+            std::vector<unsigned char> fileData;
+            if (!ReadBinaryFile(path, fileData))
+                return false;
+
+            std::size_t pos = 0;
+            std::string magic;
+            std::string widthText;
+            std::string heightText;
+            std::string maxValueText;
+            if (!ReadNextPpmToken(fileData, pos, magic) ||
+                !ReadNextPpmToken(fileData, pos, widthText) ||
+                !ReadNextPpmToken(fileData, pos, heightText) ||
+                !ReadNextPpmToken(fileData, pos, maxValueText))
+            {
+                return false;
+            }
+
+            const int width = std::stoi(widthText);
+            const int height = std::stoi(heightText);
+            const int maxValue = std::stoi(maxValueText);
+            if (width <= 0 || height <= 0 || maxValue <= 0 || maxValue > 255)
+                return false;
+
+            outWidth = width;
+            outHeight = height;
+            outPixels.clear();
+            outPixels.reserve(static_cast<std::size_t>(width * height * 4));
+
+            if (magic == "P3")
+            {
+                for (int i = 0; i < width * height; ++i)
+                {
+                    std::string rText;
+                    std::string gText;
+                    std::string bText;
+                    if (!ReadNextPpmToken(fileData, pos, rText) ||
+                        !ReadNextPpmToken(fileData, pos, gText) ||
+                        !ReadNextPpmToken(fileData, pos, bText))
+                    {
+                        return false;
+                    }
+                    outPixels.push_back(static_cast<unsigned char>(std::stoi(rText)));
+                    outPixels.push_back(static_cast<unsigned char>(std::stoi(gText)));
+                    outPixels.push_back(static_cast<unsigned char>(std::stoi(bText)));
+                    outPixels.push_back(255);
+                }
+                return true;
+            }
+
+            return false;
+        }
     }
 
     std::size_t OpenGLRenderAdapter::KeyToIndex(Key key)
     {
         switch (key)
         {
-        case Key::Up:
-            return 0;
-        case Key::Down:
-            return 1;
-        case Key::Left:
-            return 2;
-        case Key::Right:
-            return 3;
-        case Key::Enter:
-            return 4;
-        case Key::Escape:
-            return 5;
-        case Key::P:
-            return 6;
-        case Key::LeftShift:
-            return 7;
-        case Key::N:
-            return 8;
-        case Key::R:
-            return 9;
-        default:
-            return static_cast<std::size_t>(-1);
+        case Key::Up: return 0;
+        case Key::Down: return 1;
+        case Key::Left: return 2;
+        case Key::Right: return 3;
+        case Key::W: return 4;
+        case Key::A: return 5;
+        case Key::S: return 6;
+        case Key::D: return 7;
+        case Key::Q: return 8;
+        case Key::E: return 9;
+        case Key::Enter: return 10;
+        case Key::Escape: return 11;
+        case Key::P: return 12;
+        case Key::LeftShift: return 13;
+        case Key::N: return 14;
+        case Key::R: return 15;
+        case Key::K: return 16;
+        case Key::L: return 17;
+        default: return static_cast<std::size_t>(-1);
         }
     }
 
@@ -61,12 +190,21 @@ namespace archi
     {
         switch (button)
         {
-        case MouseButton::Left:
-            return 0;
-        case MouseButton::Right:
-            return 1;
-        default:
-            return static_cast<std::size_t>(-1);
+        case MouseButton::Left: return 0;
+        case MouseButton::Right: return 1;
+        default: return static_cast<std::size_t>(-1);
+        }
+    }
+
+    std::size_t OpenGLRenderAdapter::PrimitiveToIndex(PrimitiveType primitive)
+    {
+        switch (primitive)
+        {
+        case PrimitiveType::Line: return 0;
+        case PrimitiveType::Triangle: return 1;
+        case PrimitiveType::Quad: return 2;
+        case PrimitiveType::Cube: return 3;
+        default: return 1;
         }
     }
 
@@ -77,67 +215,49 @@ namespace archi
 
     void OpenGLRenderAdapter::OnKeyEvent(int glfwKey, int action)
     {
-        auto setDown = [&](Key k) {
-            const std::size_t idx = KeyToIndex(k);
-            if (idx < m_keyDown.size())
-                m_keyDown[idx] = (action != GLFW_RELEASE) ? 1 : 0;
+        auto setDown = [&](Key key) {
+            const std::size_t index = KeyToIndex(key);
+            if (index < m_keyDown.size())
+                m_keyDown[index] = (action != GLFW_RELEASE) ? 1 : 0;
         };
 
         switch (glfwKey)
         {
-        case GLFW_KEY_UP:
-            setDown(Key::Up);
-            break;
-        case GLFW_KEY_DOWN:
-            setDown(Key::Down);
-            break;
-        case GLFW_KEY_LEFT:
-            setDown(Key::Left);
-            break;
-        case GLFW_KEY_RIGHT:
-            setDown(Key::Right);
-            break;
-        case GLFW_KEY_ENTER:
-            setDown(Key::Enter);
-            break;
-        case GLFW_KEY_ESCAPE:
-            setDown(Key::Escape);
-            break;
-        case GLFW_KEY_P:
-            setDown(Key::P);
-            break;
-        case GLFW_KEY_LEFT_SHIFT:
-            setDown(Key::LeftShift);
-            break;
-        case GLFW_KEY_N:
-            setDown(Key::N);
-            break;
-        case GLFW_KEY_R:
-            setDown(Key::R);
-            break;
-        default:
-            break;
+        case GLFW_KEY_UP: setDown(Key::Up); break;
+        case GLFW_KEY_DOWN: setDown(Key::Down); break;
+        case GLFW_KEY_LEFT: setDown(Key::Left); break;
+        case GLFW_KEY_RIGHT: setDown(Key::Right); break;
+        case GLFW_KEY_W: setDown(Key::W); break;
+        case GLFW_KEY_A: setDown(Key::A); break;
+        case GLFW_KEY_S: setDown(Key::S); break;
+        case GLFW_KEY_D: setDown(Key::D); break;
+        case GLFW_KEY_Q: setDown(Key::Q); break;
+        case GLFW_KEY_E: setDown(Key::E); break;
+        case GLFW_KEY_ENTER: setDown(Key::Enter); break;
+        case GLFW_KEY_ESCAPE: setDown(Key::Escape); break;
+        case GLFW_KEY_P: setDown(Key::P); break;
+        case GLFW_KEY_LEFT_SHIFT: setDown(Key::LeftShift); break;
+        case GLFW_KEY_N: setDown(Key::N); break;
+        case GLFW_KEY_R: setDown(Key::R); break;
+        case GLFW_KEY_K: setDown(Key::K); break;
+        case GLFW_KEY_L: setDown(Key::L); break;
+        default: break;
         }
     }
 
     void OpenGLRenderAdapter::OnMouseButtonEvent(int glfwButton, int action)
     {
-        auto setDown = [&](MouseButton b) {
-            const std::size_t idx = MouseToIndex(b);
-            if (idx < m_mouseDown.size())
-                m_mouseDown[idx] = (action != GLFW_RELEASE) ? 1 : 0;
+        auto setDown = [&](MouseButton button) {
+            const std::size_t index = MouseToIndex(button);
+            if (index < m_mouseDown.size())
+                m_mouseDown[index] = (action != GLFW_RELEASE) ? 1 : 0;
         };
 
         switch (glfwButton)
         {
-        case GLFW_MOUSE_BUTTON_LEFT:
-            setDown(MouseButton::Left);
-            break;
-        case GLFW_MOUSE_BUTTON_RIGHT:
-            setDown(MouseButton::Right);
-            break;
-        default:
-            break;
+        case GLFW_MOUSE_BUTTON_LEFT: setDown(MouseButton::Left); break;
+        case GLFW_MOUSE_BUTTON_RIGHT: setDown(MouseButton::Right); break;
+        default: break;
         }
     }
 
@@ -156,7 +276,6 @@ namespace archi
             return false;
         }
 
-        // A modern baseline.
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -171,25 +290,25 @@ namespace archi
             glfwTerminate();
             return false;
         }
+
         m_windows.push_back(WindowData{ primary, 0.08f, 0.08f, 0.10f });
 
         glfwMakeContextCurrent(primary);
         glfwSwapInterval(cfg.vsync ? 1 : 0);
 
-        // Input: prefer stable callback-based state.
         glfwSetWindowUserPointer(primary, this);
-        glfwSetKeyCallback(primary, [](GLFWwindow* w, int key, int /*scancode*/, int action, int /*mods*/) {
-            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(w));
+        glfwSetKeyCallback(primary, [](GLFWwindow* window, int key, int, int action, int) {
+            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(window));
             if (self)
                 self->OnKeyEvent(key, action);
         });
-        glfwSetMouseButtonCallback(primary, [](GLFWwindow* w, int button, int action, int /*mods*/) {
-            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(w));
+        glfwSetMouseButtonCallback(primary, [](GLFWwindow* window, int button, int action, int) {
+            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(window));
             if (self)
                 self->OnMouseButtonEvent(button, action);
         });
-        glfwSetScrollCallback(primary, [](GLFWwindow* w, double /*xoffset*/, double yoffset) {
-            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(w));
+        glfwSetScrollCallback(primary, [](GLFWwindow* window, double, double yoffset) {
+            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(window));
             if (self)
                 self->OnScrollEvent(yoffset);
         });
@@ -205,37 +324,42 @@ namespace archi
 
         Logger::Info("OpenGL ", GLVersion.major, ".", GLVersion.minor);
 
-        int fbw = 0, fbh = 0;
+        int fbw = 0;
+        int fbh = 0;
         glfwGetFramebufferSize(primary, &fbw, &fbh);
         glViewport(0, 0, fbw, fbh);
+        glEnable(GL_DEPTH_TEST);
 
         return InitGLObjects();
     }
 
     void OpenGLRenderAdapter::Shutdown()
     {
-        if (m_windows.empty() && m_program == 0 && m_vbo == 0)
+        if (m_windows.empty() && m_program == 0 && m_textureCache.empty())
             return;
 
-        // Delete per-window VAOs before contexts go away.
-        for (auto& w : m_windows)
+        for (auto& window : m_windows)
         {
-            if (!w.window)
+            if (!window.window)
                 continue;
-            glfwMakeContextCurrent(w.window);
-            if (w.vao)
+
+            glfwMakeContextCurrent(window.window);
+            for (auto& vao : window.vaos)
             {
-                glDeleteVertexArrays(1, &w.vao);
-                w.vao = 0;
+                if (vao)
+                {
+                    glDeleteVertexArrays(1, &vao);
+                    vao = 0;
+                }
             }
         }
 
         DestroyGLObjects();
 
-        for (auto& w : m_windows)
+        for (auto& window : m_windows)
         {
-            if (w.window)
-                glfwDestroyWindow(w.window);
+            if (window.window)
+                glfwDestroyWindow(window.window);
         }
         m_windows.clear();
 
@@ -246,17 +370,18 @@ namespace archi
     {
         UpdateShaderHotReload();
 
-        // Cleanup closed secondary windows.
         for (std::size_t i = 1; i < m_windows.size();)
         {
             if (m_windows[i].window && glfwWindowShouldClose(m_windows[i].window))
             {
-                // Delete per-window VAO in its context before destroying.
                 glfwMakeContextCurrent(m_windows[i].window);
-                if (m_windows[i].vao)
+                for (auto& vao : m_windows[i].vaos)
                 {
-                    glDeleteVertexArrays(1, &m_windows[i].vao);
-                    m_windows[i].vao = 0;
+                    if (vao)
+                    {
+                        glDeleteVertexArrays(1, &vao);
+                        vao = 0;
+                    }
                 }
                 glfwDestroyWindow(m_windows[i].window);
                 m_windows.erase(m_windows.begin() + static_cast<std::ptrdiff_t>(i));
@@ -265,49 +390,66 @@ namespace archi
             ++i;
         }
 
-        for (auto& w : m_windows)
+        for (auto& window : m_windows)
         {
-            if (!w.window)
+            if (!window.window)
                 continue;
 
-            glfwMakeContextCurrent(w.window);
-            int fbw = 0, fbh = 0;
-            glfwGetFramebufferSize(w.window, &fbw, &fbh);
+            glfwMakeContextCurrent(window.window);
+            int fbw = 0;
+            int fbh = 0;
+            glfwGetFramebufferSize(window.window, &fbw, &fbh);
             glViewport(0, 0, fbw, fbh);
-
-            glClearColor(w.clearR, w.clearG, w.clearB, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT);
+            glEnable(GL_DEPTH_TEST);
+            glClearColor(window.clearR, window.clearG, window.clearB, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         }
     }
 
-    void OpenGLRenderAdapter::DrawTestPrimitive(const Transform2D& transform)
+    void OpenGLRenderAdapter::DrawPrimitive(const RenderPrimitiveCommand& command)
     {
-        const auto mvp = MakeTransformMatrix(transform);
+        const std::size_t primitiveIndex = PrimitiveToIndex(command.primitive);
+        const MeshBuffer& mesh = m_meshes[primitiveIndex];
+        if (mesh.vbo == 0 || mesh.vertexCount == 0 || m_program == 0)
+            return;
 
-        for (auto& w : m_windows)
+        const unsigned int textureId = ResolveTexture(command.texturePath);
+        const bool useTexture = textureId != 0;
+
+        for (auto& window : m_windows)
         {
-            if (!w.window)
+            if (!window.window)
                 continue;
 
-            glfwMakeContextCurrent(w.window);
-
+            glfwMakeContextCurrent(window.window);
             glUseProgram(m_program);
-            glUniformMatrix4fv(m_uMvpLoc, 1, GL_FALSE, mvp.data());
+            glUniformMatrix4fv(m_uModelLoc, 1, GL_FALSE, command.model.data());
+            glUniformMatrix4fv(m_uViewLoc, 1, GL_FALSE, command.view.data());
+            glUniformMatrix4fv(m_uProjectionLoc, 1, GL_FALSE, command.projection.data());
+            glUniform4f(m_uColorLoc, command.color.x, command.color.y, command.color.z, command.color.w);
+            glUniform1i(m_uUseTextureLoc, useTexture ? 1 : 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, useTexture ? textureId : 0);
+            glUniform1i(m_uTextureLoc, 0);
 
-            glBindVertexArray(w.vao);
-            glDrawArrays(GL_TRIANGLES, 0, 3);
+            if (command.primitive == PrimitiveType::Line)
+                glLineWidth(3.0f);
+
+            glBindVertexArray(window.vaos[primitiveIndex]);
+            glDrawArrays(mesh.drawMode, 0, mesh.vertexCount);
             glBindVertexArray(0);
+            glBindTexture(GL_TEXTURE_2D, 0);
         }
     }
 
     void OpenGLRenderAdapter::EndFrame()
     {
-        for (auto& w : m_windows)
+        for (auto& window : m_windows)
         {
-            if (!w.window)
+            if (!window.window)
                 continue;
-            glfwMakeContextCurrent(w.window);
-            glfwSwapBuffers(w.window);
+            glfwMakeContextCurrent(window.window);
+            glfwSwapBuffers(window.window);
         }
     }
 
@@ -323,121 +465,161 @@ namespace archi
         return glfwWindowShouldClose(m_windows[0].window) != 0;
     }
 
+    int OpenGLRenderAdapter::DrawableWidth() const
+    {
+        if (m_windows.empty() || !m_windows[0].window)
+            return m_cfg.width;
+
+        int width = 0;
+        int height = 0;
+        glfwGetFramebufferSize(m_windows[0].window, &width, &height);
+        return width > 0 ? width : m_cfg.width;
+    }
+
+    int OpenGLRenderAdapter::DrawableHeight() const
+    {
+        if (m_windows.empty() || !m_windows[0].window)
+            return m_cfg.height;
+
+        int width = 0;
+        int height = 0;
+        glfwGetFramebufferSize(m_windows[0].window, &width, &height);
+        return height > 0 ? height : m_cfg.height;
+    }
+
     bool OpenGLRenderAdapter::IsKeyDown(Key key) const
     {
-        const std::size_t idx = KeyToIndex(key);
-        return idx < m_keyDown.size() ? (m_keyDown[idx] != 0) : false;
+        const std::size_t index = KeyToIndex(key);
+        return index < m_keyDown.size() ? (m_keyDown[index] != 0) : false;
     }
 
     bool OpenGLRenderAdapter::IsMouseButtonDown(MouseButton button) const
     {
-        const std::size_t idx = MouseToIndex(button);
-        return idx < m_mouseDown.size() ? (m_mouseDown[idx] != 0) : false;
+        const std::size_t index = MouseToIndex(button);
+        return index < m_mouseDown.size() ? (m_mouseDown[index] != 0) : false;
     }
 
     float OpenGLRenderAdapter::ConsumeScrollDeltaY()
     {
-        const float v = m_scrollYAccum;
+        const float value = m_scrollYAccum;
         m_scrollYAccum = 0.0f;
-        return v;
+        return value;
     }
 
     bool OpenGLRenderAdapter::InitGLObjects()
     {
-        // Simple triangle in NDC.
-        const float verts[] = {
-            -0.5f, -0.4f,
-             0.5f, -0.4f,
-             0.0f,  0.6f,
+        const float lineVerts[] = {
+            -0.5f, 0.0f, 0.0f, 0.0f, 0.5f,
+             0.5f, 0.0f, 0.0f, 1.0f, 0.5f
         };
 
-        glGenBuffers(1, &m_vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        const float triangleVerts[] = {
+            -0.5f, -0.4f, 0.0f, 0.0f, 0.0f,
+             0.5f, -0.4f, 0.0f, 1.0f, 0.0f,
+             0.0f,  0.6f, 0.0f, 0.5f, 1.0f
+        };
 
-        // Create a VAO for the primary window context.
+        const float quadVerts[] = {
+            -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
+             0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
+             0.5f,  0.5f, 0.0f, 1.0f, 1.0f,
+            -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
+             0.5f,  0.5f, 0.0f, 1.0f, 1.0f,
+            -0.5f,  0.5f, 0.0f, 0.0f, 1.0f
+        };
+
+        const float cubeVerts[] = {
+            -0.5f, -0.5f,  0.5f, 0.0f, 0.0f,  0.5f, -0.5f,  0.5f, 1.0f, 0.0f,  0.5f,  0.5f,  0.5f, 1.0f, 1.0f,
+            -0.5f, -0.5f,  0.5f, 0.0f, 0.0f,  0.5f,  0.5f,  0.5f, 1.0f, 1.0f, -0.5f,  0.5f,  0.5f, 0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, -0.5f,  0.5f, -0.5f, 1.0f, 1.0f,  0.5f,  0.5f, -0.5f, 0.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f, 1.0f, 0.0f,  0.5f,  0.5f, -0.5f, 0.0f, 1.0f,  0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
+            -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -0.5f, -0.5f,  0.5f, 1.0f, 0.0f, -0.5f,  0.5f,  0.5f, 1.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -0.5f,  0.5f,  0.5f, 1.0f, 1.0f, -0.5f,  0.5f, -0.5f, 0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f, 1.0f, 0.0f,  0.5f,  0.5f, -0.5f, 1.0f, 1.0f,  0.5f,  0.5f,  0.5f, 0.0f, 1.0f,
+             0.5f, -0.5f, -0.5f, 1.0f, 0.0f,  0.5f,  0.5f,  0.5f, 0.0f, 1.0f,  0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
+            -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, -0.5f,  0.5f,  0.5f, 0.0f, 0.0f,  0.5f,  0.5f,  0.5f, 1.0f, 0.0f,
+            -0.5f,  0.5f, -0.5f, 0.0f, 1.0f,  0.5f,  0.5f,  0.5f, 1.0f, 0.0f,  0.5f,  0.5f, -0.5f, 1.0f, 1.0f,
+            -0.5f, -0.5f, -0.5f, 1.0f, 1.0f,  0.5f, -0.5f, -0.5f, 0.0f, 1.0f,  0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
+            -0.5f, -0.5f, -0.5f, 1.0f, 1.0f,  0.5f, -0.5f,  0.5f, 0.0f, 0.0f, -0.5f, -0.5f,  0.5f, 1.0f, 0.0f
+        };
+
+        m_meshes[PrimitiveToIndex(PrimitiveType::Line)] = MakeMeshBuffer(lineVerts, std::size(lineVerts), GL_LINES);
+        m_meshes[PrimitiveToIndex(PrimitiveType::Triangle)] = MakeMeshBuffer(triangleVerts, std::size(triangleVerts), GL_TRIANGLES);
+        m_meshes[PrimitiveToIndex(PrimitiveType::Quad)] = MakeMeshBuffer(quadVerts, std::size(quadVerts), GL_TRIANGLES);
+        m_meshes[PrimitiveToIndex(PrimitiveType::Cube)] = MakeMeshBuffer(cubeVerts, std::size(cubeVerts), GL_TRIANGLES);
+
         if (!m_windows.empty() && m_windows[0].window)
         {
             glfwMakeContextCurrent(m_windows[0].window);
-            m_windows[0].vao = CreateTriangleVaoForCurrentContext(m_vbo);
+            for (std::size_t i = 0; i < m_meshes.size(); ++i)
+                m_windows[0].vaos[i] = CreateVaoForCurrentContext(m_meshes[i]);
         }
 
-        // Shader program (file-backed, supports hot reload).
         return BuildTestShaderProgram();
-    }
-
-    static bool ReadTextFile(const std::filesystem::path& p, std::string& out)
-    {
-        std::ifstream f(p, std::ios::in | std::ios::binary);
-        if (!f)
-            return false;
-        std::ostringstream ss;
-        ss << f.rdbuf();
-        out = ss.str();
-        return true;
     }
 
     bool OpenGLRenderAdapter::LoadShaderSourcesFromFiles(std::string& outVs, std::string& outFs)
     {
-        namespace fs = std::filesystem;
+        const std::filesystem::path vsPath = ResolveAssetPath("shaders/test.vert");
+        const std::filesystem::path fsPath = ResolveAssetPath("shaders/test.frag");
+        if (!std::filesystem::exists(vsPath) || !std::filesystem::exists(fsPath))
+            return false;
 
-        // Try a few candidate locations (works when running from build dir or repo root).
-        std::vector<fs::path> roots{
-            fs::current_path(),
-            fs::current_path() / "..",
-            fs::current_path() / ".." / ".."
-        };
+        std::ifstream vsFile(vsPath, std::ios::in | std::ios::binary);
+        std::ifstream fsFile(fsPath, std::ios::in | std::ios::binary);
+        if (!vsFile || !fsFile)
+            return false;
 
-        for (const auto& root : roots)
-        {
-            const fs::path vs = root / "assets" / "shaders" / "test.vert";
-            const fs::path fsx = root / "assets" / "shaders" / "test.frag";
+        std::ostringstream vsStream;
+        std::ostringstream fsStream;
+        vsStream << vsFile.rdbuf();
+        fsStream << fsFile.rdbuf();
 
-            if (fs::exists(vs) && fs::exists(fsx))
-            {
-                std::string vsText, fsText;
-                if (ReadTextFile(vs, vsText) && ReadTextFile(fsx, fsText))
-                {
-                    m_vsPath = vs;
-                    m_fsPath = fsx;
-                    m_vsLastWrite = fs::last_write_time(vs);
-                    m_fsLastWrite = fs::last_write_time(fsx);
-                    outVs = std::move(vsText);
-                    outFs = std::move(fsText);
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        m_vsPath = vsPath;
+        m_fsPath = fsPath;
+        m_vsLastWrite = std::filesystem::last_write_time(vsPath);
+        m_fsLastWrite = std::filesystem::last_write_time(fsPath);
+        outVs = vsStream.str();
+        outFs = fsStream.str();
+        return true;
     }
 
     bool OpenGLRenderAdapter::BuildTestShaderProgram()
     {
         std::string vsText;
         std::string fsText;
-
         const bool hasFiles = LoadShaderSourcesFromFiles(vsText, fsText);
         if (!hasFiles)
         {
-            Logger::Warn("Shader files not found; using embedded shader sources. (Expected assets/shaders/test.vert + test.frag)");
+            Logger::Warn("Shader files not found; using embedded shader sources.");
             vsText = R"GLSL(
                 #version 330 core
-                layout(location = 0) in vec2 aPos;
-                uniform mat4 uMVP;
+                layout(location = 0) in vec3 aPos;
+                layout(location = 1) in vec2 aUv;
+                uniform mat4 uModel;
+                uniform mat4 uView;
+                uniform mat4 uProjection;
+                out vec2 vUv;
                 void main()
                 {
-                    gl_Position = uMVP * vec4(aPos, 0.0, 1.0);
+                    vUv = aUv;
+                    gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
                 }
             )GLSL";
 
             fsText = R"GLSL(
                 #version 330 core
+                in vec2 vUv;
+                uniform vec4 uColor;
+                uniform sampler2D uTexture;
+                uniform int uUseTexture;
                 out vec4 FragColor;
                 void main()
                 {
-                    FragColor = vec4(0.15, 0.85, 0.35, 1.0);
+                    vec4 color = uColor;
+                    if (uUseTexture != 0)
+                        color *= texture(uTexture, vUv);
+                    FragColor = color;
                 }
             )GLSL";
         }
@@ -455,26 +637,24 @@ namespace archi
         const unsigned int nextProgram = LinkProgram(vs, fs);
         glDeleteShader(vs);
         glDeleteShader(fs);
-
         if (!nextProgram)
             return false;
 
         if (m_program)
             glDeleteProgram(m_program);
         m_program = nextProgram;
-
-        m_uMvpLoc = glGetUniformLocation(m_program, "uMVP");
-        if (m_uMvpLoc < 0)
-            Logger::Warn("Uniform uMVP not found (shader optimized?)");
-
+        m_uModelLoc = glGetUniformLocation(m_program, "uModel");
+        m_uViewLoc = glGetUniformLocation(m_program, "uView");
+        m_uProjectionLoc = glGetUniformLocation(m_program, "uProjection");
+        m_uColorLoc = glGetUniformLocation(m_program, "uColor");
+        m_uUseTextureLoc = glGetUniformLocation(m_program, "uUseTexture");
+        m_uTextureLoc = glGetUniformLocation(m_program, "uTexture");
         Logger::Info("Shader program built successfully");
         return true;
     }
 
     void OpenGLRenderAdapter::UpdateShaderHotReload()
     {
-        namespace fs = std::filesystem;
-
         if (m_shaderReloadRequested)
         {
             m_shaderReloadRequested = false;
@@ -485,20 +665,56 @@ namespace archi
 
         if (m_vsPath.empty() || m_fsPath.empty())
             return;
-        if (!fs::exists(m_vsPath) || !fs::exists(m_fsPath))
+        if (!std::filesystem::exists(m_vsPath) || !std::filesystem::exists(m_fsPath))
             return;
 
-        const auto vsWrite = fs::last_write_time(m_vsPath);
-        const auto fsWrite = fs::last_write_time(m_fsPath);
-
+        const auto vsWrite = std::filesystem::last_write_time(m_vsPath);
+        const auto fsWrite = std::filesystem::last_write_time(m_fsPath);
         if (vsWrite != m_vsLastWrite || fsWrite != m_fsLastWrite)
         {
             m_vsLastWrite = vsWrite;
             m_fsLastWrite = fsWrite;
-
             Logger::Info("Shader file change detected -> rebuilding program");
             (void)BuildTestShaderProgram();
         }
+    }
+
+    unsigned int OpenGLRenderAdapter::ResolveTexture(const std::string& texturePath)
+    {
+        if (texturePath.empty())
+            return 0;
+
+        const std::filesystem::path resolvedPath = ResolveAssetPath(texturePath);
+        const std::string key = resolvedPath.lexically_normal().generic_string();
+
+        TextureResource& resource = m_textureCache[key];
+        if (resource.loadAttempted)
+            return resource.glId;
+
+        resource.loadAttempted = true;
+
+        int width = 0;
+        int height = 0;
+        std::vector<unsigned char> rgbaPixels;
+        if (!LoadPpmTextureFile(resolvedPath, width, height, rgbaPixels))
+        {
+            Logger::Warn("Failed to load texture (PPM expected): ", resolvedPath.string());
+            return 0;
+        }
+
+        glGenTextures(1, &resource.glId);
+        glBindTexture(GL_TEXTURE_2D, resource.glId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgbaPixels.data());
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        Logger::Info("Loaded texture: ", resolvedPath.string());
+        return resource.glId;
     }
 
     bool OpenGLRenderAdapter::OpenAdditionalWindow(const RenderConfig& cfg, float clearR, float clearG, float clearB)
@@ -508,43 +724,44 @@ namespace archi
 
         const std::string title = cfg.title + " (Window " + std::to_string(++m_windowCounter) + ")";
         GLFWwindow* sharedWith = m_windows[0].window;
-
-        GLFWwindow* w = glfwCreateWindow(cfg.width, cfg.height, title.c_str(), nullptr, sharedWith);
-        if (!w)
+        GLFWwindow* window = glfwCreateWindow(cfg.width, cfg.height, title.c_str(), nullptr, sharedWith);
+        if (!window)
         {
             Logger::Error("Failed to create additional window");
             return false;
         }
 
-        glfwMakeContextCurrent(w);
+        glfwMakeContextCurrent(window);
         glfwSwapInterval(cfg.vsync ? 1 : 0);
 
-        glfwSetWindowUserPointer(w, this);
-        glfwSetKeyCallback(w, [](GLFWwindow* ww, int key, int /*scancode*/, int action, int /*mods*/) {
-            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(ww));
+        glfwSetWindowUserPointer(window, this);
+        glfwSetKeyCallback(window, [](GLFWwindow* w, int key, int, int action, int) {
+            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(w));
             if (self)
                 self->OnKeyEvent(key, action);
         });
-        glfwSetMouseButtonCallback(w, [](GLFWwindow* ww, int button, int action, int /*mods*/) {
-            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(ww));
+        glfwSetMouseButtonCallback(window, [](GLFWwindow* w, int button, int action, int) {
+            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(w));
             if (self)
                 self->OnMouseButtonEvent(button, action);
         });
-        glfwSetScrollCallback(w, [](GLFWwindow* ww, double /*xoffset*/, double yoffset) {
-            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(ww));
+        glfwSetScrollCallback(window, [](GLFWwindow* w, double, double yoffset) {
+            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(w));
             if (self)
                 self->OnScrollEvent(yoffset);
         });
 
-        glfwSetInputMode(w, GLFW_STICKY_KEYS, GLFW_TRUE);
-        glfwSetInputMode(w, GLFW_STICKY_MOUSE_BUTTONS, GLFW_TRUE);
+        glfwSetInputMode(window, GLFW_STICKY_KEYS, GLFW_TRUE);
+        glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GLFW_TRUE);
+        glEnable(GL_DEPTH_TEST);
 
         WindowData data{};
-        data.window = w;
+        data.window = window;
         data.clearR = clearR;
         data.clearG = clearG;
         data.clearB = clearB;
-        data.vao = CreateTriangleVaoForCurrentContext(m_vbo);
+        for (std::size_t i = 0; i < m_meshes.size(); ++i)
+            data.vaos[i] = CreateVaoForCurrentContext(m_meshes[i]);
 
         m_windows.push_back(data);
         Logger::Info("Additional window created. Total windows: ", m_windows.size());
@@ -556,64 +773,82 @@ namespace archi
         m_shaderReloadRequested = true;
     }
 
+    void OpenGLRenderAdapter::DestroyTextures()
+    {
+        for (auto& [_, resource] : m_textureCache)
+        {
+            if (resource.glId)
+            {
+                glDeleteTextures(1, &resource.glId);
+                resource.glId = 0;
+            }
+        }
+        m_textureCache.clear();
+    }
+
     void OpenGLRenderAdapter::DestroyGLObjects()
     {
+        DestroyTextures();
+
         if (m_program)
         {
             glDeleteProgram(m_program);
             m_program = 0;
         }
-        if (m_vbo)
+
+        for (auto& mesh : m_meshes)
         {
-            glDeleteBuffers(1, &m_vbo);
-            m_vbo = 0;
+            if (mesh.vbo)
+            {
+                glDeleteBuffers(1, &mesh.vbo);
+                mesh.vbo = 0;
+                mesh.vertexCount = 0;
+                mesh.drawMode = 0;
+            }
         }
     }
 
     unsigned int OpenGLRenderAdapter::CompileShader(unsigned int type, const char* src)
     {
-        const unsigned int id = glCreateShader(type);
-        glShaderSource(id, 1, &src, nullptr);
-        glCompileShader(id);
+        const unsigned int shader = glCreateShader(type);
+        glShaderSource(shader, 1, &src, nullptr);
+        glCompileShader(shader);
 
         int ok = 0;
-        glGetShaderiv(id, GL_COMPILE_STATUS, &ok);
+        glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
         if (!ok)
         {
             int len = 0;
-            glGetShaderiv(id, GL_INFO_LOG_LENGTH, &len);
-            std::vector<char> buf(static_cast<size_t>(len) + 1);
-            glGetShaderInfoLog(id, len, nullptr, buf.data());
-
-            Logger::Error("Shader compile failed: ", buf.data());
-            glDeleteShader(id);
+            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &len);
+            std::vector<char> buffer(static_cast<std::size_t>(len) + 1);
+            glGetShaderInfoLog(shader, len, nullptr, buffer.data());
+            Logger::Error("Shader compile failed: ", buffer.data());
+            glDeleteShader(shader);
             return 0;
         }
-        return id;
+        return shader;
     }
 
     unsigned int OpenGLRenderAdapter::LinkProgram(unsigned int vs, unsigned int fs)
     {
-        const unsigned int prog = glCreateProgram();
-        glAttachShader(prog, vs);
-        glAttachShader(prog, fs);
-        glLinkProgram(prog);
+        const unsigned int program = glCreateProgram();
+        glAttachShader(program, vs);
+        glAttachShader(program, fs);
+        glLinkProgram(program);
 
         int ok = 0;
-        glGetProgramiv(prog, GL_LINK_STATUS, &ok);
+        glGetProgramiv(program, GL_LINK_STATUS, &ok);
         if (!ok)
         {
             int len = 0;
-            glGetProgramiv(prog, GL_INFO_LOG_LENGTH, &len);
-            std::vector<char> buf(static_cast<size_t>(len) + 1);
-            glGetProgramInfoLog(prog, len, nullptr, buf.data());
-
-            Logger::Error("Program link failed: ", buf.data());
-            glDeleteProgram(prog);
+            glGetProgramiv(program, GL_INFO_LOG_LENGTH, &len);
+            std::vector<char> buffer(static_cast<std::size_t>(len) + 1);
+            glGetProgramInfoLog(program, len, nullptr, buffer.data());
+            Logger::Error("Program link failed: ", buffer.data());
+            glDeleteProgram(program);
             return 0;
         }
 
-        return prog;
+        return program;
     }
 }
-

@@ -20,6 +20,7 @@ namespace archi
     {
     public:
         const char* Name() const override { return "Menu"; }
+        void OnEnter(Application& app) override;
         void HandleInput(Application& app, double dt) override;
         void Render(Application& app, IRenderAdapter& renderer) override;
 
@@ -27,6 +28,8 @@ namespace archi
         bool m_prevEnterDown = false;
         bool m_prevNDown = false;
         bool m_prevRDown = false;
+        bool m_prevKDown = false;
+        bool m_prevLDown = false;
     };
 
     class GameplayState final : public IGameState
@@ -42,14 +45,17 @@ namespace archi
         bool m_prevPDown = false;
         bool m_prevNDown = false;
         bool m_prevRDown = false;
+        bool m_prevKDown = false;
+        bool m_prevLDown = false;
     };
 
     class PauseState final : public IGameState
     {
     public:
         const char* Name() const override { return "Pause"; }
+        void OnEnter(Application& app) override;
+        void OnExit(Application& app) override;
         void HandleInput(Application& app, double dt) override;
-        void Render(Application& app, IRenderAdapter& renderer) override;
 
     private:
         bool m_prevPDown = false;

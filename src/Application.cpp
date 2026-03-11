@@ -1,16 +1,22 @@
 #include "Application.h"
 
+#include "AssetPaths.h"
+#include "ECSSystems.h"
 #include "Logger.h"
 #include "OpenGLRenderAdapter.h"
+#include "SceneSerializer.h"
 #include "States.h"
 
 #include <memory>
 
 namespace archi
 {
-    static double ClampDouble(double v, double lo, double hi)
+    namespace
     {
-        return (v < lo) ? lo : (v > hi ? hi : v);
+        double ClampDouble(double value, double lo, double hi)
+        {
+            return (value < lo) ? lo : (value > hi ? hi : value);
+        }
     }
 
     Application::Application() = default;
@@ -18,6 +24,228 @@ namespace archi
     Application::~Application()
     {
         Shutdown();
+    }
+
+    Transform* Application::ControlledTransform()
+    {
+        return m_world.GetComponent<Transform>(m_controlledEntity);
+    }
+
+    const Transform* Application::ControlledTransform() const
+    {
+        return m_world.GetComponent<Transform>(m_controlledEntity);
+    }
+
+    void Application::ResetControlledEntityTransform()
+    {
+        if (auto* transform = ControlledTransform())
+        {
+            transform->position = { 0.0f, 0.0f, 0.0f };
+            transform->rotation = { 0.0f, 0.0f, 0.0f };
+            transform->scale = { 0.55f, 0.55f, 1.0f };
+        }
+    }
+
+    Entity Application::FindEntityByTag(const char* name) const
+    {
+        if (!name)
+            return {};
+
+        Entity found{};
+        m_world.ForEach<Tag>([&](Entity entity, const Tag& tag) {
+            if (!found && tag.name == name)
+                found = entity;
+        });
+        return found;
+    }
+
+    bool Application::SaveScene()
+    {
+        if (m_scenePath.empty())
+            m_scenePath = GetWritableAssetPath("scenes/demo_scene.json");
+        return SceneSerializer::SaveWorld(m_world, m_scenePath);
+    }
+
+    bool Application::LoadScene()
+    {
+        if (m_scenePath.empty())
+            m_scenePath = GetWritableAssetPath("scenes/demo_scene.json");
+
+        if (!SceneSerializer::LoadWorld(m_world, m_scenePath))
+            return false;
+
+        RefreshSceneBindings();
+        return true;
+    }
+
+    void Application::RefreshSceneBindings()
+    {
+        m_controlledEntity = FindEntityByTag("Player");
+
+        if (!m_controlledEntity)
+        {
+            m_world.ForEach<Transform>([&](Entity entity, Transform&) {
+                if (!m_controlledEntity)
+                    m_controlledEntity = entity;
+            });
+        }
+    }
+
+    void Application::BuildDemoScene()
+    {
+        m_world.ClearEntities();
+        m_controlledEntity = {};
+
+        const std::string checkerTexture = "textures/checker.ppm";
+
+        const Entity cameraEntity = m_world.CreateEntity();
+        m_world.AddComponent<Tag>(cameraEntity).name = "MainCamera";
+        auto& cameraTransform = m_world.AddComponent<Transform>(cameraEntity);
+        cameraTransform.position = { 0.0f, 0.0f, 0.0f };
+        cameraTransform.rotation = { 0.0f, 0.0f, 0.0f };
+        cameraTransform.scale = { 1.0f, 1.0f, 1.0f };
+
+        auto& camera = m_world.AddComponent<Camera>(cameraEntity);
+        camera.isPrimary = true;
+        camera.orthographicHalfHeight = 1.25f;
+        camera.nearPlane = -20.0f;
+        camera.farPlane = 20.0f;
+
+        auto& cameraController = m_world.AddComponent<CameraController>(cameraEntity);
+        cameraController.moveSpeed = 2.4f;
+        cameraController.zoomSpeed = 1.4f;
+
+        auto createRenderable =
+            [this](const char* name,
+                   PrimitiveType primitive,
+                   const Vec3& position,
+                   const Vec3& rotation,
+                   const Vec3& scale,
+                   const Vec4& color,
+                   const char* material,
+                   const std::string& texturePath = std::string{}) {
+                const Entity entity = m_world.CreateEntity();
+
+                m_world.AddComponent<Tag>(entity).name = name;
+
+                auto& transform = m_world.AddComponent<Transform>(entity);
+                transform.position = position;
+                transform.rotation = rotation;
+                transform.scale = scale;
+
+                auto& mesh = m_world.AddComponent<MeshRenderer>(entity);
+                mesh.primitive = primitive;
+                mesh.color = color;
+                mesh.materialName = material;
+                mesh.texturePath = texturePath;
+                return entity;
+            };
+
+        m_controlledEntity = createRenderable(
+            "Player",
+            PrimitiveType::Triangle,
+            { 0.0f, 0.0f, 0.0f },
+            { 0.0f, 0.0f, 0.0f },
+            { 0.55f, 0.55f, 1.0f },
+            { 0.15f, 0.85f, 0.35f, 1.0f },
+            "PlayerMaterial");
+
+        const Entity floorQuad = createRenderable(
+            "FloorQuad",
+            PrimitiveType::Quad,
+            { -1.30f, -0.75f, 0.0f },
+            { 0.0f, 0.0f, 0.15f },
+            { 0.85f, 0.38f, 1.0f },
+            { 0.95f, 0.85f, 0.85f, 1.0f },
+            "FloorMaterial",
+            checkerTexture);
+
+        const Entity beam = createRenderable(
+            "Beam",
+            PrimitiveType::Line,
+            { 1.35f, 0.55f, 0.0f },
+            { 0.0f, 0.0f, 0.8f },
+            { 0.90f, 0.90f, 1.0f },
+            { 0.30f, 0.67f, 0.97f, 1.0f },
+            "BeamMaterial");
+
+        const Entity mover = createRenderable(
+            "Mover",
+            PrimitiveType::Quad,
+            { 1.05f, -0.15f, 0.0f },
+            { 0.0f, 0.0f, 0.0f },
+            { 0.35f, 0.35f, 1.0f },
+            { 0.95f, 0.85f, 0.23f, 1.0f },
+            "MoverMaterial",
+            checkerTexture);
+
+        auto& moverAnimation = m_world.AddComponent<SpinAnimation>(mover);
+        moverAnimation.angularVelocity = { 0.0f, 0.0f, 1.1f };
+        moverAnimation.translationAxis = { 1.0f, 0.0f, 0.0f };
+        moverAnimation.translationAmplitude = 0.45f;
+        moverAnimation.translationSpeed = 1.5f;
+        moverAnimation.anchorPosition = { 1.05f, -0.15f, 0.0f };
+
+        const Entity pivot = createRenderable(
+            "Pivot",
+            PrimitiveType::Triangle,
+            { -1.10f, 0.55f, 0.0f },
+            { 0.0f, 0.0f, 0.0f },
+            { 0.35f, 0.35f, 1.0f },
+            { 0.79f, 0.35f, 0.89f, 1.0f },
+            "PivotMaterial");
+
+        auto& pivotAnimation = m_world.AddComponent<SpinAnimation>(pivot);
+        pivotAnimation.angularVelocity = { 0.0f, 0.0f, 0.85f };
+        pivotAnimation.anchorPosition = { -1.10f, 0.55f, 0.0f };
+
+        const Entity childCube = createRenderable(
+            "SatelliteCube",
+            PrimitiveType::Cube,
+            { 0.70f, 0.0f, 0.0f },
+            { 0.6f, 0.4f, 0.2f },
+            { 0.24f, 0.24f, 0.24f },
+            { 0.95f, 0.95f, 0.95f, 1.0f },
+            "CubeMaterial",
+            checkerTexture);
+
+        auto& cubeAnimation = m_world.AddComponent<SpinAnimation>(childCube);
+        cubeAnimation.angularVelocity = { 1.3f, 1.7f, 0.5f };
+        cubeAnimation.anchorPosition = { 0.70f, 0.0f, 0.0f };
+
+        AttachToParent(m_world, childCube, pivot);
+
+        createRenderable(
+            "FarMarker",
+            PrimitiveType::Quad,
+            { 4.50f, 2.40f, 0.0f },
+            { 0.0f, 0.0f, 0.0f },
+            { 0.40f, 0.40f, 1.0f },
+            { 0.90f, 0.40f, 0.25f, 1.0f },
+            "FarMarkerMaterial",
+            checkerTexture);
+
+        (void)floorQuad;
+        (void)beam;
+    }
+
+    bool Application::LoadOrCreateScene()
+    {
+        m_scenePath = GetWritableAssetPath("scenes/demo_scene.json");
+
+        if (std::filesystem::exists(m_scenePath) && LoadScene())
+        {
+            Logger::Info("Loaded scene from JSON");
+            return true;
+        }
+
+        BuildDemoScene();
+        RefreshSceneBindings();
+
+        if (!SaveScene())
+            Logger::Warn("Failed to write demo scene JSON to disk");
+
+        return true;
     }
 
     bool Application::Init()
@@ -30,7 +258,6 @@ namespace archi
 
         Logger::Info("Application init...");
 
-        // Avoid relying on std::make_unique availability/IDE settings.
         m_renderer = std::unique_ptr<IRenderAdapter>(new OpenGLRenderAdapter());
         RenderConfig cfg{};
         cfg.width = 1280;
@@ -44,9 +271,19 @@ namespace archi
             return false;
         }
 
-        m_timer.Reset();
+        m_world.AddSystem<CameraControllerSystem>();
+        m_world.AddSystem<SpinSystem>();
+        m_world.AddSystem<RenderSystem>();
 
-        // Start with loading state.
+        if (!LoadOrCreateScene())
+        {
+            Logger::Error("Scene initialization failed");
+            return false;
+        }
+
+        m_timer.Reset();
+        m_sceneUpdateEnabled = true;
+
         m_states.ChangeState(*this, std::make_unique<LoadingState>());
 
         m_initialized = true;
@@ -62,21 +299,17 @@ namespace archi
         Logger::Info("Application run...");
 
         double logAccumulator = 0.0;
-        int frameCounter = 0;
 
         while (!m_quitRequested && !m_renderer->ShouldClose())
         {
             double dt = m_timer.TickSeconds();
-            // Avoid crazy jumps after breakpoints / window dragging etc.
             dt = ClampDouble(dt, 0.0, 0.25);
 
             logAccumulator += dt;
-            frameCounter++;
             if (logAccumulator >= 0.5)
             {
                 Logger::Info("deltaTime (s) last frame: ", dt, " | approx FPS: ", (dt > 0.0 ? (1.0 / dt) : 0.0));
                 logAccumulator = 0.0;
-                frameCounter = 0;
             }
             else
             {
@@ -85,15 +318,18 @@ namespace archi
 
             m_renderer->PollEvents();
 
-            // Important: HandleInput can change the active state.
-            if (auto* s = m_states.Current())
-                s->HandleInput(*this, dt);
-            if (auto* s = m_states.Current())
-                s->Update(*this, dt);
+            if (auto* state = m_states.Current())
+                state->HandleInput(*this, dt);
+            if (auto* state = m_states.Current())
+                state->Update(*this, dt);
+
+            if (m_sceneUpdateEnabled)
+                m_world.RunSystems(SystemPhase::Update, SystemContext{ m_renderer.get(), dt });
 
             m_renderer->BeginFrame();
-            if (auto* s = m_states.Current())
-                s->Render(*this, *m_renderer);
+            m_world.RunSystems(SystemPhase::Render, SystemContext{ m_renderer.get(), dt });
+            if (auto* state = m_states.Current())
+                state->Render(*this, *m_renderer);
             m_renderer->EndFrame();
 
             if (m_states.Depth() == 0)
@@ -115,8 +351,9 @@ namespace archi
 
         Logger::Info("Application shutdown...");
 
-        // Drop all states.
         m_states.ChangeState(*this, nullptr);
+        m_world.ClearEntities();
+        m_controlledEntity = {};
 
         if (m_renderer)
         {
@@ -128,4 +365,3 @@ namespace archi
         m_initialized = false;
     }
 }
-
