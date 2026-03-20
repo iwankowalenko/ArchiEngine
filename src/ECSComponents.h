@@ -6,8 +6,6 @@
 
 #include "ECS.h"
 #include "Math2D.h"
-#include "RenderAdapter.h"
-
 namespace archi
 {
     struct Transform
@@ -24,10 +22,12 @@ namespace archi
 
     struct MeshRenderer
     {
-        PrimitiveType primitive = PrimitiveType::Triangle;
-        Vec4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
-        std::string texturePath{};
-        std::string materialName{ "Default" };
+        std::string meshAsset{};
+        std::string materialAsset{};
+        std::string textureAsset{};
+        std::string shaderAsset{};
+        Vec4 tintColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+        bool asyncLoad = true;
     };
 
     struct Camera

@@ -13,6 +13,7 @@
 namespace archi
 {
     class IRenderAdapter;
+    class ResourceManager;
 
     using EntityId = std::uint32_t;
     constexpr EntityId InvalidEntityId = 0;
@@ -51,6 +52,7 @@ namespace archi
     struct SystemContext
     {
         IRenderAdapter* renderer = nullptr;
+        ResourceManager* resources = nullptr;
         double deltaTime = 0.0;
     };
 

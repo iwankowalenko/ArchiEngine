@@ -1,362 +1,187 @@
 {
+  "version": 4,
   "entities": [
     {
+      "id": 1,
       "components": {
+        "Tag": { "name": "MainCamera" },
+        "Transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
         "Camera": {
-          "farPlane": 20,
           "isPrimary": true,
-          "nearPlane": -20,
-          "orthographicHalfHeight": 1.7084584236145
+          "orthographicHalfHeight": 2.35,
+          "nearPlane": -20.0,
+          "farPlane": 20.0
         },
         "CameraController": {
-          "moveSpeed": 2.40000009536743,
-          "zoomSpeed": 1.39999997615814
-        },
-        "Tag": {
-          "name": "MainCamera"
-        },
-        "Transform": {
-          "position": [
-            -0.172301813960075,
-            0.277877777814865,
-            0
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "scale": [
-            1,
-            1,
-            1
-          ]
+          "moveSpeed": 2.4,
+          "zoomSpeed": 1.4
         }
-      },
-      "id": 1
+      }
     },
     {
+      "id": 2,
       "components": {
-        "MeshRenderer": {
-          "color": [
-            0.150000005960464,
-            0.850000023841858,
-            0.349999994039536,
-            1
-          ],
-          "materialName": "PlayerMaterial",
-          "primitive": "Triangle",
-          "texturePath": null
-        },
-        "Tag": {
-          "name": "Player"
-        },
+        "Tag": { "name": "Player" },
         "Transform": {
-          "position": [
-            -0.127985954284668,
-            0.149413347244263,
-            0
-          ],
-          "rotation": [
-            0,
-            0,
-            10.0840511322021
-          ],
-          "scale": [
-            3.78634643554688,
-            3.78634643554688,
-            1
-          ]
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [0.65, 0.65, 0.65]
+        },
+        "MeshRenderer": {
+          "meshAsset": "models/pyramid.obj",
+          "materialAsset": "materials/build_material.json",
+          "textureAsset": "",
+          "shaderAsset": "",
+          "tintColor": [ 0.15, 0.85, 0.35, 1.0 ],
+          "asyncLoad": true
         }
-      },
-      "id": 2
+      }
     },
     {
+      "id": 3,
       "components": {
-        "MeshRenderer": {
-          "color": [
-            0.949999988079071,
-            0.850000023841858,
-            0.850000023841858,
-            1
-          ],
-          "materialName": "FloorMaterial",
-          "primitive": "Quad",
-          "texturePath": "textures/checker.ppm"
-        },
-        "Tag": {
-          "name": "FloorQuad"
-        },
+        "Tag": { "name": "Floor" },
         "Transform": {
-          "position": [
-            -1.29999995231628,
-            -0.75,
-            0
-          ],
-          "rotation": [
-            0,
-            0,
-            0.150000005960464
-          ],
-          "scale": [
-            0.850000023841858,
-            0.379999995231628,
-            1
-          ]
+          "position": [-1.3, -0.75, 0.0],
+          "rotation": [0.0, 0.0, 0.15],
+          "scale": [1.6, 0.1, 1.6]
+        },
+        "MeshRenderer": {
+          "meshAsset": "models/plane.obj",
+          "materialAsset": "materials/checker.material.json",
+          "textureAsset": "",
+          "shaderAsset": "",
+          "tintColor": [0.95, 0.85, 0.85, 1.0],
+          "asyncLoad": true
         }
-      },
-      "id": 3
+      }
     },
     {
+      "id": 4,
       "components": {
-        "MeshRenderer": {
-          "color": [
-            0.300000011920929,
-            0.670000016689301,
-            0.970000028610229,
-            1
-          ],
-          "materialName": "BeamMaterial",
-          "primitive": "Line",
-          "texturePath": null
-        },
-        "Tag": {
-          "name": "Beam"
-        },
+        "Tag": { "name": "Beam" },
         "Transform": {
-          "position": [
-            1.35000002384186,
-            0.550000011920929,
-            0
-          ],
-          "rotation": [
-            0,
-            0,
-            0.800000011920929
-          ],
-          "scale": [
-            0.899999976158142,
-            0.899999976158142,
-            1
-          ]
+          "position": [1.35, 0.55, 0.0],
+          "rotation": [0.0, 0.0, 0.8],
+          "scale": [0.5, 0.5, 0.5]
+        },
+        "MeshRenderer": {
+          "meshAsset": "models/cheburashka.obj",
+          "materialAsset": "materials/checker.material.json",
+          "textureAsset": "",
+          "shaderAsset": "",
+          "tintColor": [ 0.30, 0.67, 0.97, 1.0 ],
+          "asyncLoad": true
         }
-      },
-      "id": 4
+      }
     },
     {
+      "id": 5,
       "components": {
+        "Tag": { "name": "Mover" },
+        "Transform": {
+          "position": [1.05, -0.15, 0.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [0.35, 0.35, 0.35]
+        },
         "MeshRenderer": {
-          "color": [
-            0.949999988079071,
-            0.850000023841858,
-            0.230000004172325,
-            1
-          ],
-          "materialName": "MoverMaterial",
-          "primitive": "Quad",
-          "texturePath": "textures/checker.ppm"
+          "meshAsset": "models/negr.obj",
+          "shaderAsset": "shaders/textured.shader.json",
+          "tintColor": [0.95, 0.85, 0.23, 1.0],
+          "asyncLoad": true
         },
         "SpinAnimation": {
-          "anchorPosition": [
-            1.04999995231628,
-            -0.150000005960464,
-            0
-          ],
-          "angularVelocity": [
-            0,
-            0,
-            1.10000002384186
-          ],
-          "elapsed": 94.1829087982187,
-          "translationAmplitude": 0.449999988079071,
-          "translationAxis": [
-            1,
-            0,
-            0
-          ],
-          "translationSpeed": 1.5
-        },
-        "Tag": {
-          "name": "Mover"
-        },
-        "Transform": {
-          "position": [
-            1.09372317790985,
-            -0.150000005960464,
-            0
-          ],
-          "rotation": [
-            0,
-            0,
-            103.601127624512
-          ],
-          "scale": [
-            0.349999994039536,
-            0.349999994039536,
-            1
-          ]
+          "angularVelocity": [0.0, 0.0, 1.1],
+          "translationAxis": [1.0, 0.0, 0.0],
+          "translationAmplitude": 0.45,
+          "translationSpeed": 1.5,
+          "anchorPosition": [1.05, -0.15, 0.0],
+          "elapsed": 0.0
         }
-      },
-      "id": 5
+      }
     },
     {
+      "id": 6,
       "components": {
+        "Tag": { "name": "Pivot" },
+        "Transform": {
+          "position": [-1.1, 0.55, 0.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [0.45, 0.45, 0.45]
+        },
+        "MeshRenderer": {
+          "meshAsset": "models/pyramid.obj",
+          "materialAsset": "materials/tree_material.json",
+          "textureAsset": "",
+          "shaderAsset": "",
+          "tintColor": [ 0.79, 0.35, 0.89, 1.0 ],
+          "asyncLoad": true
+        },
         "Hierarchy": {
-          "children": [
-            7
-          ],
-          "parent": 0
-        },
-        "MeshRenderer": {
-          "color": [
-            0.790000021457672,
-            0.349999994039536,
-            0.889999985694885,
-            1
-          ],
-          "materialName": "PivotMaterial",
-          "primitive": "Triangle",
-          "texturePath": null
+          "parent": 0,
+          "children": [7]
         },
         "SpinAnimation": {
-          "anchorPosition": [
-            -1.10000002384186,
-            0.550000011920929,
-            0
-          ],
-          "angularVelocity": [
-            0,
-            0,
-            0.850000023841858
-          ],
-          "elapsed": 94.1829087982187,
-          "translationAmplitude": 0,
-          "translationAxis": [
-            0,
-            0,
-            0
-          ],
-          "translationSpeed": 0
-        },
-        "Tag": {
-          "name": "Pivot"
-        },
-        "Transform": {
-          "position": [
-            -1.10000002384186,
-            0.550000011920929,
-            0
-          ],
-          "rotation": [
-            0,
-            0,
-            80.0556335449219
-          ],
-          "scale": [
-            0.349999994039536,
-            0.349999994039536,
-            1
-          ]
+          "angularVelocity": [0.0, 0.0, 0.85],
+          "translationAxis": [0.0, 0.0, 0.0],
+          "translationAmplitude": 0.0,
+          "translationSpeed": 0.0,
+          "anchorPosition": [-1.1, 0.55, 0.0],
+          "elapsed": 0.0
         }
-      },
-      "id": 6
+      }
     },
     {
+      "id": 7,
       "components": {
+        "Tag": { "name": "SatelliteCube" },
+        "Transform": {
+          "position": [0.7, 0.0, 0.0],
+          "rotation": [0.6, 0.4, 0.2],
+          "scale": [0.24, 0.24, 0.24]
+        },
+        "MeshRenderer": {
+          "meshAsset": "models/cube.obj",
+          "shaderAsset": "shaders/textured.shader.json",
+          "tintColor": [0.95, 0.95, 0.95, 1.0],
+          "asyncLoad": true
+        },
         "Hierarchy": {
-          "children": [],
-          "parent": 6
-        },
-        "MeshRenderer": {
-          "color": [
-            0.949999988079071,
-            0.949999988079071,
-            0.949999988079071,
-            1
-          ],
-          "materialName": "CubeMaterial",
-          "primitive": "Cube",
-          "texturePath": "textures/checker.ppm"
+          "parent": 6,
+          "children": []
         },
         "SpinAnimation": {
-          "anchorPosition": [
-            0.699999988079071,
-            0,
-            0
-          ],
-          "angularVelocity": [
-            1.29999995231628,
-            1.70000004768372,
-            0.5
-          ],
-          "elapsed": 94.1829087982187,
-          "translationAmplitude": 0,
-          "translationAxis": [
-            0,
-            0,
-            0
-          ],
-          "translationSpeed": 0
-        },
-        "Tag": {
-          "name": "SatelliteCube"
-        },
-        "Transform": {
-          "position": [
-            0.699999988079071,
-            0,
-            0
-          ],
-          "rotation": [
-            123.038101196289,
-            160.511260986328,
-            47.29150390625
-          ],
-          "scale": [
-            0.239999994635582,
-            0.239999994635582,
-            0.239999994635582
-          ]
+          "angularVelocity": [1.3, 1.7, 0.5],
+          "translationAxis": [0.0, 0.0, 0.0],
+          "translationAmplitude": 0.0,
+          "translationSpeed": 0.0,
+          "anchorPosition": [0.7, 0.0, 0.0],
+          "elapsed": 0.0
         }
-      },
-      "id": 7
+      }
     },
     {
+      "id": 8,
       "components": {
-        "MeshRenderer": {
-          "color": [
-            0.899999976158142,
-            0.400000005960464,
-            0.25,
-            1
-          ],
-          "materialName": "FarMarkerMaterial",
-          "primitive": "Quad",
-          "texturePath": "textures/checker.ppm"
-        },
-        "Tag": {
-          "name": "FarMarker"
-        },
+        "Tag": { "name": "FarMarker" },
         "Transform": {
-          "position": [
-            4.5,
-            2.40000009536743,
-            0
-          ],
-          "rotation": [
-            0,
-            0,
-            0
-          ],
-          "scale": [
-            0.400000005960464,
-            0.400000005960464,
-            1
-          ]
+          "position": [4.5, 2.4, 0.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [0.5, 0.5, 0.5]
+        },
+        "MeshRenderer": {
+          "meshAsset": "models/plane.obj",
+          "materialAsset": "materials/checker.material.json",
+          "textureAsset": "",
+          "shaderAsset": "",
+          "tintColor": [0.9, 0.4, 0.25, 1.0],
+          "asyncLoad": true
         }
-      },
-      "id": 8
+      }
     }
-  ],
-  "version": 1
+  ]
 }

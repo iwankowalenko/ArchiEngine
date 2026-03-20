@@ -42,7 +42,7 @@ namespace archi
         {
             transform->position = { 0.0f, 0.0f, 0.0f };
             transform->rotation = { 0.0f, 0.0f, 0.0f };
-            transform->scale = { 0.55f, 0.55f, 1.0f };
+            transform->scale = { 0.65f, 0.65f, 0.65f };
         }
     }
 
@@ -78,6 +78,11 @@ namespace archi
         return true;
     }
 
+    void Application::RequestShaderReload()
+    {
+        m_resources.ForceReloadAll();
+    }
+
     void Application::RefreshSceneBindings()
     {
         m_controlledEntity = FindEntityByTag("Player");
@@ -96,7 +101,7 @@ namespace archi
         m_world.ClearEntities();
         m_controlledEntity = {};
 
-        const std::string checkerTexture = "textures/checker.ppm";
+        const std::string checkerMaterial = "materials/checker.material.json";
 
         const Entity cameraEntity = m_world.CreateEntity();
         m_world.AddComponent<Tag>(cameraEntity).name = "MainCamera";
@@ -107,7 +112,7 @@ namespace archi
 
         auto& camera = m_world.AddComponent<Camera>(cameraEntity);
         camera.isPrimary = true;
-        camera.orthographicHalfHeight = 1.25f;
+        camera.orthographicHalfHeight = 2.35f;
         camera.nearPlane = -20.0f;
         camera.farPlane = 20.0f;
 
@@ -117,13 +122,13 @@ namespace archi
 
         auto createRenderable =
             [this](const char* name,
-                   PrimitiveType primitive,
+                   const std::string& meshAsset,
                    const Vec3& position,
                    const Vec3& rotation,
                    const Vec3& scale,
-                   const Vec4& color,
-                   const char* material,
-                   const std::string& texturePath = std::string{}) {
+                   const Vec4& tintColor,
+                   const std::string& materialAsset = std::string{},
+                   bool asyncLoad = true) {
                 const Entity entity = m_world.CreateEntity();
 
                 m_world.AddComponent<Tag>(entity).name = name;
@@ -134,50 +139,48 @@ namespace archi
                 transform.scale = scale;
 
                 auto& mesh = m_world.AddComponent<MeshRenderer>(entity);
-                mesh.primitive = primitive;
-                mesh.color = color;
-                mesh.materialName = material;
-                mesh.texturePath = texturePath;
+                mesh.meshAsset = meshAsset;
+                mesh.materialAsset = materialAsset;
+                mesh.tintColor = tintColor;
+                mesh.asyncLoad = asyncLoad;
                 return entity;
             };
 
         m_controlledEntity = createRenderable(
             "Player",
-            PrimitiveType::Triangle,
+            "models/pyramid.obj",
             { 0.0f, 0.0f, 0.0f },
             { 0.0f, 0.0f, 0.0f },
-            { 0.55f, 0.55f, 1.0f },
+            { 0.65f, 0.65f, 0.65f },
             { 0.15f, 0.85f, 0.35f, 1.0f },
-            "PlayerMaterial");
+            checkerMaterial);
 
         const Entity floorQuad = createRenderable(
-            "FloorQuad",
-            PrimitiveType::Quad,
+            "Floor",
+            "models/plane.obj",
             { -1.30f, -0.75f, 0.0f },
             { 0.0f, 0.0f, 0.15f },
-            { 0.85f, 0.38f, 1.0f },
+            { 1.60f, 0.10f, 1.60f },
             { 0.95f, 0.85f, 0.85f, 1.0f },
-            "FloorMaterial",
-            checkerTexture);
+            checkerMaterial);
 
         const Entity beam = createRenderable(
             "Beam",
-            PrimitiveType::Line,
+            "models/cheburashka.obj",
             { 1.35f, 0.55f, 0.0f },
-            { 0.0f, 0.0f, 0.8f },
-            { 0.90f, 0.90f, 1.0f },
-            { 0.30f, 0.67f, 0.97f, 1.0f },
-            "BeamMaterial");
+            { 0.5f, 0.5f, 0.5f },
+            { 0.5f, 0.5f, 0.5f },
+            { 0.50f, 0.67f, 0.97f, 1.0f },
+            checkerMaterial);
 
         const Entity mover = createRenderable(
             "Mover",
-            PrimitiveType::Quad,
+            "models/negr.obj",
             { 1.05f, -0.15f, 0.0f },
             { 0.0f, 0.0f, 0.0f },
-            { 0.35f, 0.35f, 1.0f },
+            { 0.35f, 0.35f, 0.35f },
             { 0.95f, 0.85f, 0.23f, 1.0f },
-            "MoverMaterial",
-            checkerTexture);
+            std::string{});
 
         auto& moverAnimation = m_world.AddComponent<SpinAnimation>(mover);
         moverAnimation.angularVelocity = { 0.0f, 0.0f, 1.1f };
@@ -188,12 +191,12 @@ namespace archi
 
         const Entity pivot = createRenderable(
             "Pivot",
-            PrimitiveType::Triangle,
+            "models/pyramid.obj",
             { -1.10f, 0.55f, 0.0f },
             { 0.0f, 0.0f, 0.0f },
-            { 0.35f, 0.35f, 1.0f },
+            { 0.45f, 0.45f, 0.45f },
             { 0.79f, 0.35f, 0.89f, 1.0f },
-            "PivotMaterial");
+            checkerMaterial);
 
         auto& pivotAnimation = m_world.AddComponent<SpinAnimation>(pivot);
         pivotAnimation.angularVelocity = { 0.0f, 0.0f, 0.85f };
@@ -201,13 +204,12 @@ namespace archi
 
         const Entity childCube = createRenderable(
             "SatelliteCube",
-            PrimitiveType::Cube,
+            "models/negr.obj",
             { 0.70f, 0.0f, 0.0f },
             { 0.6f, 0.4f, 0.2f },
             { 0.24f, 0.24f, 0.24f },
             { 0.95f, 0.95f, 0.95f, 1.0f },
-            "CubeMaterial",
-            checkerTexture);
+            std::string{});
 
         auto& cubeAnimation = m_world.AddComponent<SpinAnimation>(childCube);
         cubeAnimation.angularVelocity = { 1.3f, 1.7f, 0.5f };
@@ -217,16 +219,78 @@ namespace archi
 
         createRenderable(
             "FarMarker",
-            PrimitiveType::Quad,
+            "models/plane.obj",
             { 4.50f, 2.40f, 0.0f },
             { 0.0f, 0.0f, 0.0f },
-            { 0.40f, 0.40f, 1.0f },
+            { 0.50f, 0.50f, 0.50f },
             { 0.90f, 0.40f, 0.25f, 1.0f },
-            "FarMarkerMaterial",
-            checkerTexture);
+            checkerMaterial);
 
         (void)floorQuad;
         (void)beam;
+    }
+
+    bool Application::WarmUpSceneResources()
+    {
+        bool ok = true;
+
+        m_world.ForEach<MeshRenderer>([&](Entity entity, MeshRenderer& renderer) {
+            if (renderer.meshAsset.empty())
+            {
+                Logger::Error("Entity ", entity.id, " has incomplete MeshRenderer resource references");
+                ok = false;
+                return;
+            }
+
+            const ResourcePtr<MeshAsset> meshResource =
+                renderer.asyncLoad
+                ? m_resources.LoadMeshAsync(renderer.meshAsset)
+                : m_resources.Load<MeshAsset>(renderer.meshAsset);
+            if (!meshResource)
+                ok = false;
+
+            if (!renderer.materialAsset.empty())
+            {
+                const ResourcePtr<MaterialAsset> materialResource = m_resources.Load<MaterialAsset>(renderer.materialAsset);
+                if (!materialResource)
+                {
+                    ok = false;
+                    return;
+                }
+
+                if (!materialResource->value.shaderAsset.empty() &&
+                    !m_resources.Load<ShaderAsset>(materialResource->value.shaderAsset))
+                {
+                    ok = false;
+                }
+
+                if (materialResource->value.useTexture && !materialResource->value.textureAsset.empty())
+                {
+                    const ResourcePtr<TextureAsset> textureResource =
+                        renderer.asyncLoad
+                        ? m_resources.LoadTextureAsync(materialResource->value.textureAsset)
+                        : m_resources.Load<TextureAsset>(materialResource->value.textureAsset);
+                    if (!textureResource)
+                        ok = false;
+                }
+            }
+            else
+            {
+                if (!renderer.shaderAsset.empty() && !m_resources.Load<ShaderAsset>(renderer.shaderAsset))
+                    ok = false;
+                if (!renderer.textureAsset.empty())
+                {
+                    const ResourcePtr<TextureAsset> textureResource =
+                        renderer.asyncLoad
+                        ? m_resources.LoadTextureAsync(renderer.textureAsset)
+                        : m_resources.Load<TextureAsset>(renderer.textureAsset);
+                    if (!textureResource)
+                        ok = false;
+                }
+            }
+        });
+
+        return ok;
     }
 
     bool Application::LoadOrCreateScene()
@@ -236,7 +300,7 @@ namespace archi
         if (std::filesystem::exists(m_scenePath) && LoadScene())
         {
             Logger::Info("Loaded scene from JSON");
-            return true;
+            return WarmUpSceneResources();
         }
 
         BuildDemoScene();
@@ -245,7 +309,7 @@ namespace archi
         if (!SaveScene())
             Logger::Warn("Failed to write demo scene JSON to disk");
 
-        return true;
+        return WarmUpSceneResources();
     }
 
     bool Application::Init()
@@ -270,6 +334,8 @@ namespace archi
             Logger::Error("Renderer init failed");
             return false;
         }
+
+        m_resources.SetRenderAdapter(m_renderer.get());
 
         m_world.AddSystem<CameraControllerSystem>();
         m_world.AddSystem<SpinSystem>();
@@ -323,11 +389,13 @@ namespace archi
             if (auto* state = m_states.Current())
                 state->Update(*this, dt);
 
+            m_resources.UpdateHotReload();
+
             if (m_sceneUpdateEnabled)
-                m_world.RunSystems(SystemPhase::Update, SystemContext{ m_renderer.get(), dt });
+                m_world.RunSystems(SystemPhase::Update, SystemContext{ m_renderer.get(), &m_resources, dt });
 
             m_renderer->BeginFrame();
-            m_world.RunSystems(SystemPhase::Render, SystemContext{ m_renderer.get(), dt });
+            m_world.RunSystems(SystemPhase::Render, SystemContext{ m_renderer.get(), &m_resources, dt });
             if (auto* state = m_states.Current())
                 state->Render(*this, *m_renderer);
             m_renderer->EndFrame();

@@ -2,10 +2,11 @@
 
 #include "ECSComponents.h"
 #include "Logger.h"
+#include "RenderAdapter.h"
+#include "ResourceManager.h"
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 #include <map>
 #include <set>
 #include <unordered_map>
@@ -17,9 +18,19 @@ namespace archi
     {
         struct PreparedRenderItem
         {
-            RenderPrimitiveCommand command{};
+            RenderMeshCommand command{};
             Aabb2D bounds{};
         };
+
+        Vec4 MultiplyColor(const Vec4& lhs, const Vec4& rhs)
+        {
+            return {
+                lhs.x * rhs.x,
+                lhs.y * rhs.y,
+                lhs.z * rhs.z,
+                lhs.w * rhs.w
+            };
+        }
 
         Mat4 ResolveWorldMatrix(
             const World& world,
@@ -72,7 +83,7 @@ namespace archi
             bounds.max.y = std::max(bounds.max.y, worldPoint.y);
         }
 
-        Aabb2D ComputePrimitiveBounds(PrimitiveType primitive, const Mat4& model)
+        Aabb2D ComputeMeshBounds(const MeshData& mesh, const Mat4& model)
         {
             Aabb2D bounds{};
             bool initialized = false;
@@ -81,34 +92,16 @@ namespace archi
                 IncludeTransformedPoint(bounds, model, Vec3{ x, y, z }, initialized);
             };
 
-            switch (primitive)
-            {
-            case PrimitiveType::Line:
-                include(-0.5f, 0.0f, 0.0f);
-                include(0.5f, 0.0f, 0.0f);
-                break;
-            case PrimitiveType::Triangle:
-                include(-0.5f, -0.4f, 0.0f);
-                include(0.5f, -0.4f, 0.0f);
-                include(0.0f, 0.6f, 0.0f);
-                break;
-            case PrimitiveType::Quad:
-                include(-0.5f, -0.5f, 0.0f);
-                include(0.5f, -0.5f, 0.0f);
-                include(0.5f, 0.5f, 0.0f);
-                include(-0.5f, 0.5f, 0.0f);
-                break;
-            case PrimitiveType::Cube:
-                include(-0.5f, -0.5f, -0.5f);
-                include(0.5f, -0.5f, -0.5f);
-                include(0.5f, 0.5f, -0.5f);
-                include(-0.5f, 0.5f, -0.5f);
-                include(-0.5f, -0.5f, 0.5f);
-                include(0.5f, -0.5f, 0.5f);
-                include(0.5f, 0.5f, 0.5f);
-                include(-0.5f, 0.5f, 0.5f);
-                break;
-            }
+            const Vec3& min = mesh.boundsMin;
+            const Vec3& max = mesh.boundsMax;
+            include(min.x, min.y, min.z);
+            include(max.x, min.y, min.z);
+            include(max.x, max.y, min.z);
+            include(min.x, max.y, min.z);
+            include(min.x, min.y, max.z);
+            include(max.x, min.y, max.z);
+            include(max.x, max.y, max.z);
+            include(min.x, max.y, max.z);
 
             if (!initialized)
                 bounds = Aabb2D{ { 0.0f, 0.0f }, { 0.0f, 0.0f } };
@@ -230,7 +223,7 @@ namespace archi
 
     void RenderSystem::Update(World& world, const SystemContext& context)
     {
-        if (!context.renderer)
+        if (!context.renderer || !context.resources)
             return;
 
         std::map<EntityId, Mat4> matrixCache{};
@@ -253,14 +246,80 @@ namespace archi
         std::unordered_map<EntityId, PreparedRenderItem> preparedItems{};
 
         world.ForEach<Transform, MeshRenderer>([&](Entity entity, Transform&, MeshRenderer& renderer) {
+            const ResourcePtr<MeshAsset> meshResource =
+                renderer.asyncLoad
+                ? context.resources->LoadMeshAsync(renderer.meshAsset)
+                : context.resources->Load<MeshAsset>(renderer.meshAsset);
+            if (!meshResource)
+                return;
+
+            ResourcePtr<MeshAsset> effectiveMesh = meshResource;
+            if (!meshResource->IsReady() || meshResource->value.gpuHandle == InvalidMeshHandle)
+                effectiveMesh = context.resources->PlaceholderMesh();
+            if (!effectiveMesh || effectiveMesh->value.gpuHandle == InvalidMeshHandle)
+                return;
+
+            ResourcePtr<MaterialAsset> materialResource{};
+            if (!renderer.materialAsset.empty())
+                materialResource = context.resources->Load<MaterialAsset>(renderer.materialAsset);
+            else if (meshResource->IsReady() && !meshResource->value.importedMaterialAsset.empty())
+                materialResource = context.resources->Load<MaterialAsset>(meshResource->value.importedMaterialAsset);
+            else
+                materialResource = context.resources->DefaultMaterial();
+
+            std::string shaderAsset = renderer.shaderAsset;
+            std::string textureAsset = renderer.textureAsset;
+            Vec4 baseColor{ 1.0f, 1.0f, 1.0f, 1.0f };
+            bool useTexture = false;
+
+            if (materialResource && materialResource->IsReady())
+            {
+                shaderAsset = materialResource->value.shaderAsset;
+                if (textureAsset.empty())
+                    textureAsset = materialResource->value.textureAsset;
+                baseColor = materialResource->value.baseColor;
+                useTexture = materialResource->value.useTexture && !textureAsset.empty();
+            }
+            else if (!shaderAsset.empty() || !textureAsset.empty())
+            {
+                useTexture = !textureAsset.empty();
+            }
+            else if (const auto defaultMaterial = context.resources->DefaultMaterial(); defaultMaterial && defaultMaterial->IsReady())
+            {
+                shaderAsset = defaultMaterial->value.shaderAsset;
+                baseColor = defaultMaterial->value.baseColor;
+                useTexture = false;
+            }
+
+            if (shaderAsset.empty())
+                shaderAsset = "shaders/textured.shader.json";
+
+            const ResourcePtr<ShaderAsset> shaderResource = context.resources->Load<ShaderAsset>(shaderAsset);
+            if (!shaderResource || !shaderResource->IsReady() || shaderResource->value.gpuHandle == InvalidShaderHandle)
+                return;
+
+            ResourcePtr<TextureAsset> textureResource{};
+            if (useTexture && !textureAsset.empty())
+            {
+                textureResource =
+                    renderer.asyncLoad
+                    ? context.resources->LoadTextureAsync(textureAsset)
+                    : context.resources->Load<TextureAsset>(textureAsset);
+
+                if (!textureResource || !textureResource->IsReady() || textureResource->value.gpuHandle == InvalidTextureHandle)
+                    textureResource = context.resources->PlaceholderTexture();
+            }
+
             PreparedRenderItem item{};
-            item.command.primitive = renderer.primitive;
+            item.command.mesh = effectiveMesh->value.gpuHandle;
+            item.command.shader = shaderResource->value.gpuHandle;
+            item.command.texture = textureResource ? textureResource->value.gpuHandle : InvalidTextureHandle;
             item.command.model = ResolveWorldMatrix(world, entity, matrixCache, recursionStack);
             item.command.view = view;
             item.command.projection = projection;
-            item.command.color = renderer.color;
-            item.command.texturePath = renderer.texturePath;
-            item.bounds = ComputePrimitiveBounds(renderer.primitive, item.command.model);
+            item.command.color = MultiplyColor(baseColor, renderer.tintColor);
+            item.command.useTexture = useTexture && textureResource != nullptr;
+            item.bounds = ComputeMeshBounds(effectiveMesh->value.mesh, item.command.model);
 
             m_spatialGrid.Insert(entity, item.bounds);
             preparedItems.emplace(entity.id, std::move(item));
@@ -280,7 +339,7 @@ namespace archi
             if (!it->second.bounds.Intersects(visibleBounds))
                 continue;
 
-            context.renderer->DrawPrimitive(it->second.command);
+            context.renderer->DrawMesh(it->second.command);
         }
     }
 }

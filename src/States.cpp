@@ -24,7 +24,7 @@ namespace archi
 
             const bool rDown = renderer.IsKeyDown(Key::R);
             if (rDown && !prevRDown)
-                renderer.RequestShaderReload();
+                app.RequestShaderReload();
             prevRDown = rDown;
         }
 

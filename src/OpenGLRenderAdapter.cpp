@@ -1,163 +1,18 @@
 #include "OpenGLRenderAdapter.h"
 
-#include "AssetPaths.h"
 #include "Logger.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#include <algorithm>
-#include <array>
-#include <cctype>
-#include <filesystem>
-#include <fstream>
-#include <sstream>
+#include <cstddef>
 #include <vector>
 
 namespace archi
 {
     namespace
     {
-        using MeshBuffer = OpenGLRenderAdapter::MeshBuffer;
-
-        unsigned int CreateMeshVbo(const float* vertices, std::size_t floatCount)
-        {
-            unsigned int vbo = 0;
-            glGenBuffers(1, &vbo);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
-            glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(floatCount * sizeof(float)), vertices, GL_STATIC_DRAW);
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            return vbo;
-        }
-
-        unsigned int CreateVaoForCurrentContext(const MeshBuffer& mesh)
-        {
-            unsigned int vao = 0;
-            glGenVertexArrays(1, &vao);
-            glBindVertexArray(vao);
-            glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo);
-            glEnableVertexAttribArray(0);
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(1);
-            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-            glBindVertexArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            return vao;
-        }
-
-        MeshBuffer MakeMeshBuffer(const float* vertices, std::size_t floatCount, unsigned int drawMode)
-        {
-            MeshBuffer mesh{};
-            mesh.vbo = CreateMeshVbo(vertices, floatCount);
-            mesh.vertexCount = static_cast<int>(floatCount / 5);
-            mesh.drawMode = drawMode;
-            return mesh;
-        }
-
-        bool ReadBinaryFile(const std::filesystem::path& path, std::vector<unsigned char>& outData)
-        {
-            std::ifstream file(path, std::ios::binary);
-            if (!file)
-                return false;
-
-            file.seekg(0, std::ios::end);
-            const auto size = file.tellg();
-            file.seekg(0, std::ios::beg);
-            if (size <= 0)
-                return false;
-
-            outData.resize(static_cast<std::size_t>(size));
-            file.read(reinterpret_cast<char*>(outData.data()), size);
-            return file.good();
-        }
-
-        bool ReadNextPpmToken(const std::vector<unsigned char>& data, std::size_t& pos, std::string& outToken)
-        {
-            while (pos < data.size())
-            {
-                const unsigned char ch = data[pos];
-                if (std::isspace(ch))
-                {
-                    ++pos;
-                    continue;
-                }
-                if (ch == '#')
-                {
-                    while (pos < data.size() && data[pos] != '\n')
-                        ++pos;
-                    continue;
-                }
-                break;
-            }
-
-            if (pos >= data.size())
-                return false;
-
-            outToken.clear();
-            while (pos < data.size())
-            {
-                const unsigned char ch = data[pos];
-                if (std::isspace(ch) || ch == '#')
-                    break;
-                outToken.push_back(static_cast<char>(ch));
-                ++pos;
-            }
-            return !outToken.empty();
-        }
-
-        bool LoadPpmTextureFile(const std::filesystem::path& path, int& outWidth, int& outHeight, std::vector<unsigned char>& outPixels)
-        {
-            std::vector<unsigned char> fileData;
-            if (!ReadBinaryFile(path, fileData))
-                return false;
-
-            std::size_t pos = 0;
-            std::string magic;
-            std::string widthText;
-            std::string heightText;
-            std::string maxValueText;
-            if (!ReadNextPpmToken(fileData, pos, magic) ||
-                !ReadNextPpmToken(fileData, pos, widthText) ||
-                !ReadNextPpmToken(fileData, pos, heightText) ||
-                !ReadNextPpmToken(fileData, pos, maxValueText))
-            {
-                return false;
-            }
-
-            const int width = std::stoi(widthText);
-            const int height = std::stoi(heightText);
-            const int maxValue = std::stoi(maxValueText);
-            if (width <= 0 || height <= 0 || maxValue <= 0 || maxValue > 255)
-                return false;
-
-            outWidth = width;
-            outHeight = height;
-            outPixels.clear();
-            outPixels.reserve(static_cast<std::size_t>(width * height * 4));
-
-            if (magic == "P3")
-            {
-                for (int i = 0; i < width * height; ++i)
-                {
-                    std::string rText;
-                    std::string gText;
-                    std::string bText;
-                    if (!ReadNextPpmToken(fileData, pos, rText) ||
-                        !ReadNextPpmToken(fileData, pos, gText) ||
-                        !ReadNextPpmToken(fileData, pos, bText))
-                    {
-                        return false;
-                    }
-                    outPixels.push_back(static_cast<unsigned char>(std::stoi(rText)));
-                    outPixels.push_back(static_cast<unsigned char>(std::stoi(gText)));
-                    outPixels.push_back(static_cast<unsigned char>(std::stoi(bText)));
-                    outPixels.push_back(255);
-                }
-                return true;
-            }
-
-            return false;
-        }
+        constexpr unsigned int kDefaultDrawMode = GL_TRIANGLES;
     }
 
     std::size_t OpenGLRenderAdapter::KeyToIndex(Key key)
@@ -193,18 +48,6 @@ namespace archi
         case MouseButton::Left: return 0;
         case MouseButton::Right: return 1;
         default: return static_cast<std::size_t>(-1);
-        }
-    }
-
-    std::size_t OpenGLRenderAdapter::PrimitiveToIndex(PrimitiveType primitive)
-    {
-        switch (primitive)
-        {
-        case PrimitiveType::Line: return 0;
-        case PrimitiveType::Triangle: return 1;
-        case PrimitiveType::Quad: return 2;
-        case PrimitiveType::Cube: return 3;
-        default: return 1;
         }
     }
 
@@ -329,13 +172,15 @@ namespace archi
         glfwGetFramebufferSize(primary, &fbw, &fbh);
         glViewport(0, 0, fbw, fbh);
         glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
 
         return InitGLObjects();
     }
 
     void OpenGLRenderAdapter::Shutdown()
     {
-        if (m_windows.empty() && m_program == 0 && m_textureCache.empty())
+        if (m_windows.empty() && m_meshes.empty() && m_textures.empty() && m_shaders.empty())
             return;
 
         for (auto& window : m_windows)
@@ -344,14 +189,7 @@ namespace archi
                 continue;
 
             glfwMakeContextCurrent(window.window);
-            for (auto& vao : window.vaos)
-            {
-                if (vao)
-                {
-                    glDeleteVertexArrays(1, &vao);
-                    vao = 0;
-                }
-            }
+            DestroyWindowVaos(window);
         }
 
         DestroyGLObjects();
@@ -368,21 +206,12 @@ namespace archi
 
     void OpenGLRenderAdapter::BeginFrame()
     {
-        UpdateShaderHotReload();
-
         for (std::size_t i = 1; i < m_windows.size();)
         {
             if (m_windows[i].window && glfwWindowShouldClose(m_windows[i].window))
             {
                 glfwMakeContextCurrent(m_windows[i].window);
-                for (auto& vao : m_windows[i].vaos)
-                {
-                    if (vao)
-                    {
-                        glDeleteVertexArrays(1, &vao);
-                        vao = 0;
-                    }
-                }
+                DestroyWindowVaos(m_windows[i]);
                 glfwDestroyWindow(m_windows[i].window);
                 m_windows.erase(m_windows.begin() + static_cast<std::ptrdiff_t>(i));
                 continue;
@@ -406,15 +235,44 @@ namespace archi
         }
     }
 
-    void OpenGLRenderAdapter::DrawPrimitive(const RenderPrimitiveCommand& command)
+    MeshHandle OpenGLRenderAdapter::UploadMesh(const MeshData& mesh)
     {
-        const std::size_t primitiveIndex = PrimitiveToIndex(command.primitive);
-        const MeshBuffer& mesh = m_meshes[primitiveIndex];
-        if (mesh.vbo == 0 || mesh.vertexCount == 0 || m_program == 0)
-            return;
+        MeshResource resource{};
+        if (!BuildMeshResource(mesh, resource))
+            return InvalidMeshHandle;
 
-        const unsigned int textureId = ResolveTexture(command.texturePath);
-        const bool useTexture = textureId != 0;
+        const MeshHandle handle = m_nextMeshHandle++;
+        m_meshes.emplace(handle, resource);
+
+        for (auto& window : m_windows)
+        {
+            if (!window.window)
+                continue;
+            glfwMakeContextCurrent(window.window);
+            window.vaos[handle] = CreateVaoForCurrentContext(resource);
+        }
+
+        return handle;
+    }
+
+    bool OpenGLRenderAdapter::ReloadMesh(MeshHandle handle, const MeshData& mesh)
+    {
+        auto it = m_meshes.find(handle);
+        if (it == m_meshes.end())
+            return false;
+
+        MeshResource next{};
+        if (!BuildMeshResource(mesh, next))
+            return false;
+
+        DestroyMeshVaos(handle);
+
+        if (it->second.ebo)
+            glDeleteBuffers(1, &it->second.ebo);
+        if (it->second.vbo)
+            glDeleteBuffers(1, &it->second.vbo);
+
+        it->second = next;
 
         for (auto& window : m_windows)
         {
@@ -422,21 +280,150 @@ namespace archi
                 continue;
 
             glfwMakeContextCurrent(window.window);
-            glUseProgram(m_program);
-            glUniformMatrix4fv(m_uModelLoc, 1, GL_FALSE, command.model.data());
-            glUniformMatrix4fv(m_uViewLoc, 1, GL_FALSE, command.view.data());
-            glUniformMatrix4fv(m_uProjectionLoc, 1, GL_FALSE, command.projection.data());
-            glUniform4f(m_uColorLoc, command.color.x, command.color.y, command.color.z, command.color.w);
-            glUniform1i(m_uUseTextureLoc, useTexture ? 1 : 0);
+            window.vaos[handle] = CreateVaoForCurrentContext(next);
+        }
+
+        return true;
+    }
+
+    TextureHandle OpenGLRenderAdapter::CreateTexture(const TextureData& texture)
+    {
+        if (texture.width <= 0 || texture.height <= 0 || texture.pixels.empty())
+            return InvalidTextureHandle;
+
+        TextureResource resource{};
+        resource.width = texture.width;
+        resource.height = texture.height;
+
+        glGenTextures(1, &resource.glId);
+        glBindTexture(GL_TEXTURE_2D, resource.glId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA8,
+            texture.width,
+            texture.height,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            texture.pixels.data());
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        const TextureHandle handle = m_nextTextureHandle++;
+        m_textures.emplace(handle, resource);
+        return handle;
+    }
+
+    bool OpenGLRenderAdapter::ReloadTexture(TextureHandle handle, const TextureData& texture)
+    {
+        auto it = m_textures.find(handle);
+        if (it == m_textures.end())
+            return false;
+        if (texture.width <= 0 || texture.height <= 0 || texture.pixels.empty())
+            return false;
+
+        if (it->second.glId == 0)
+            glGenTextures(1, &it->second.glId);
+
+        glBindTexture(GL_TEXTURE_2D, it->second.glId);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA8,
+            texture.width,
+            texture.height,
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            texture.pixels.data());
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, 0);
+
+        it->second.width = texture.width;
+        it->second.height = texture.height;
+        return true;
+    }
+
+    ShaderHandle OpenGLRenderAdapter::CreateShaderProgram(const ShaderSource& shaderSource)
+    {
+        const ShaderResource resource = BuildShaderResource(shaderSource);
+        if (resource.program == 0)
+            return InvalidShaderHandle;
+
+        const ShaderHandle handle = m_nextShaderHandle++;
+        m_shaders.emplace(handle, resource);
+        return handle;
+    }
+
+    bool OpenGLRenderAdapter::ReloadShaderProgram(ShaderHandle handle, const ShaderSource& shaderSource)
+    {
+        auto it = m_shaders.find(handle);
+        if (it == m_shaders.end())
+            return false;
+
+        ShaderResource next = BuildShaderResource(shaderSource);
+        if (next.program == 0)
+            return false;
+
+        if (it->second.program)
+            glDeleteProgram(it->second.program);
+        it->second = next;
+        return true;
+    }
+
+    void OpenGLRenderAdapter::DrawMesh(const RenderMeshCommand& command)
+    {
+        const auto meshIt = m_meshes.find(command.mesh);
+        const auto shaderIt = m_shaders.find(command.shader);
+        if (meshIt == m_meshes.end() || shaderIt == m_shaders.end())
+            return;
+
+        const MeshResource& mesh = meshIt->second;
+        const ShaderResource& shader = shaderIt->second;
+        const TextureResource* texture = nullptr;
+        if (command.useTexture && command.texture != InvalidTextureHandle)
+        {
+            const auto textureIt = m_textures.find(command.texture);
+            if (textureIt != m_textures.end())
+                texture = &textureIt->second;
+        }
+
+        for (auto& window : m_windows)
+        {
+            if (!window.window)
+                continue;
+
+            glfwMakeContextCurrent(window.window);
+            const unsigned int vao = GetOrCreateVao(window, command.mesh, mesh);
+            if (vao == 0)
+                continue;
+
+            glUseProgram(shader.program);
+            glUniformMatrix4fv(shader.uModelLoc, 1, GL_FALSE, command.model.data());
+            glUniformMatrix4fv(shader.uViewLoc, 1, GL_FALSE, command.view.data());
+            glUniformMatrix4fv(shader.uProjectionLoc, 1, GL_FALSE, command.projection.data());
+            glUniform4f(shader.uColorLoc, command.color.x, command.color.y, command.color.z, command.color.w);
+            glUniform1i(shader.uUseTextureLoc, texture ? 1 : 0);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, useTexture ? textureId : 0);
-            glUniform1i(m_uTextureLoc, 0);
+            glBindTexture(GL_TEXTURE_2D, texture ? texture->glId : 0);
+            glUniform1i(shader.uTextureLoc, 0);
 
-            if (command.primitive == PrimitiveType::Line)
-                glLineWidth(3.0f);
-
-            glBindVertexArray(window.vaos[primitiveIndex]);
-            glDrawArrays(mesh.drawMode, 0, mesh.vertexCount);
+            glBindVertexArray(vao);
+            if (mesh.indexed)
+                glDrawElements(mesh.drawMode, mesh.indexCount, GL_UNSIGNED_INT, nullptr);
+            else
+                glDrawArrays(mesh.drawMode, 0, mesh.vertexCount);
             glBindVertexArray(0);
             glBindTexture(GL_TEXTURE_2D, 0);
         }
@@ -506,217 +493,6 @@ namespace archi
         return value;
     }
 
-    bool OpenGLRenderAdapter::InitGLObjects()
-    {
-        const float lineVerts[] = {
-            -0.5f, 0.0f, 0.0f, 0.0f, 0.5f,
-             0.5f, 0.0f, 0.0f, 1.0f, 0.5f
-        };
-
-        const float triangleVerts[] = {
-            -0.5f, -0.4f, 0.0f, 0.0f, 0.0f,
-             0.5f, -0.4f, 0.0f, 1.0f, 0.0f,
-             0.0f,  0.6f, 0.0f, 0.5f, 1.0f
-        };
-
-        const float quadVerts[] = {
-            -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
-             0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
-             0.5f,  0.5f, 0.0f, 1.0f, 1.0f,
-            -0.5f, -0.5f, 0.0f, 0.0f, 0.0f,
-             0.5f,  0.5f, 0.0f, 1.0f, 1.0f,
-            -0.5f,  0.5f, 0.0f, 0.0f, 1.0f
-        };
-
-        const float cubeVerts[] = {
-            -0.5f, -0.5f,  0.5f, 0.0f, 0.0f,  0.5f, -0.5f,  0.5f, 1.0f, 0.0f,  0.5f,  0.5f,  0.5f, 1.0f, 1.0f,
-            -0.5f, -0.5f,  0.5f, 0.0f, 0.0f,  0.5f,  0.5f,  0.5f, 1.0f, 1.0f, -0.5f,  0.5f,  0.5f, 0.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f, 1.0f, 0.0f, -0.5f,  0.5f, -0.5f, 1.0f, 1.0f,  0.5f,  0.5f, -0.5f, 0.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f, 1.0f, 0.0f,  0.5f,  0.5f, -0.5f, 0.0f, 1.0f,  0.5f, -0.5f, -0.5f, 0.0f, 0.0f,
-            -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -0.5f, -0.5f,  0.5f, 1.0f, 0.0f, -0.5f,  0.5f,  0.5f, 1.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -0.5f,  0.5f,  0.5f, 1.0f, 1.0f, -0.5f,  0.5f, -0.5f, 0.0f, 1.0f,
-             0.5f, -0.5f, -0.5f, 1.0f, 0.0f,  0.5f,  0.5f, -0.5f, 1.0f, 1.0f,  0.5f,  0.5f,  0.5f, 0.0f, 1.0f,
-             0.5f, -0.5f, -0.5f, 1.0f, 0.0f,  0.5f,  0.5f,  0.5f, 0.0f, 1.0f,  0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
-            -0.5f,  0.5f, -0.5f, 0.0f, 1.0f, -0.5f,  0.5f,  0.5f, 0.0f, 0.0f,  0.5f,  0.5f,  0.5f, 1.0f, 0.0f,
-            -0.5f,  0.5f, -0.5f, 0.0f, 1.0f,  0.5f,  0.5f,  0.5f, 1.0f, 0.0f,  0.5f,  0.5f, -0.5f, 1.0f, 1.0f,
-            -0.5f, -0.5f, -0.5f, 1.0f, 1.0f,  0.5f, -0.5f, -0.5f, 0.0f, 1.0f,  0.5f, -0.5f,  0.5f, 0.0f, 0.0f,
-            -0.5f, -0.5f, -0.5f, 1.0f, 1.0f,  0.5f, -0.5f,  0.5f, 0.0f, 0.0f, -0.5f, -0.5f,  0.5f, 1.0f, 0.0f
-        };
-
-        m_meshes[PrimitiveToIndex(PrimitiveType::Line)] = MakeMeshBuffer(lineVerts, std::size(lineVerts), GL_LINES);
-        m_meshes[PrimitiveToIndex(PrimitiveType::Triangle)] = MakeMeshBuffer(triangleVerts, std::size(triangleVerts), GL_TRIANGLES);
-        m_meshes[PrimitiveToIndex(PrimitiveType::Quad)] = MakeMeshBuffer(quadVerts, std::size(quadVerts), GL_TRIANGLES);
-        m_meshes[PrimitiveToIndex(PrimitiveType::Cube)] = MakeMeshBuffer(cubeVerts, std::size(cubeVerts), GL_TRIANGLES);
-
-        if (!m_windows.empty() && m_windows[0].window)
-        {
-            glfwMakeContextCurrent(m_windows[0].window);
-            for (std::size_t i = 0; i < m_meshes.size(); ++i)
-                m_windows[0].vaos[i] = CreateVaoForCurrentContext(m_meshes[i]);
-        }
-
-        return BuildTestShaderProgram();
-    }
-
-    bool OpenGLRenderAdapter::LoadShaderSourcesFromFiles(std::string& outVs, std::string& outFs)
-    {
-        const std::filesystem::path vsPath = ResolveAssetPath("shaders/test.vert");
-        const std::filesystem::path fsPath = ResolveAssetPath("shaders/test.frag");
-        if (!std::filesystem::exists(vsPath) || !std::filesystem::exists(fsPath))
-            return false;
-
-        std::ifstream vsFile(vsPath, std::ios::in | std::ios::binary);
-        std::ifstream fsFile(fsPath, std::ios::in | std::ios::binary);
-        if (!vsFile || !fsFile)
-            return false;
-
-        std::ostringstream vsStream;
-        std::ostringstream fsStream;
-        vsStream << vsFile.rdbuf();
-        fsStream << fsFile.rdbuf();
-
-        m_vsPath = vsPath;
-        m_fsPath = fsPath;
-        m_vsLastWrite = std::filesystem::last_write_time(vsPath);
-        m_fsLastWrite = std::filesystem::last_write_time(fsPath);
-        outVs = vsStream.str();
-        outFs = fsStream.str();
-        return true;
-    }
-
-    bool OpenGLRenderAdapter::BuildTestShaderProgram()
-    {
-        std::string vsText;
-        std::string fsText;
-        const bool hasFiles = LoadShaderSourcesFromFiles(vsText, fsText);
-        if (!hasFiles)
-        {
-            Logger::Warn("Shader files not found; using embedded shader sources.");
-            vsText = R"GLSL(
-                #version 330 core
-                layout(location = 0) in vec3 aPos;
-                layout(location = 1) in vec2 aUv;
-                uniform mat4 uModel;
-                uniform mat4 uView;
-                uniform mat4 uProjection;
-                out vec2 vUv;
-                void main()
-                {
-                    vUv = aUv;
-                    gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
-                }
-            )GLSL";
-
-            fsText = R"GLSL(
-                #version 330 core
-                in vec2 vUv;
-                uniform vec4 uColor;
-                uniform sampler2D uTexture;
-                uniform int uUseTexture;
-                out vec4 FragColor;
-                void main()
-                {
-                    vec4 color = uColor;
-                    if (uUseTexture != 0)
-                        color *= texture(uTexture, vUv);
-                    FragColor = color;
-                }
-            )GLSL";
-        }
-
-        const unsigned int vs = CompileShader(GL_VERTEX_SHADER, vsText.c_str());
-        if (!vs)
-            return false;
-        const unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, fsText.c_str());
-        if (!fs)
-        {
-            glDeleteShader(vs);
-            return false;
-        }
-
-        const unsigned int nextProgram = LinkProgram(vs, fs);
-        glDeleteShader(vs);
-        glDeleteShader(fs);
-        if (!nextProgram)
-            return false;
-
-        if (m_program)
-            glDeleteProgram(m_program);
-        m_program = nextProgram;
-        m_uModelLoc = glGetUniformLocation(m_program, "uModel");
-        m_uViewLoc = glGetUniformLocation(m_program, "uView");
-        m_uProjectionLoc = glGetUniformLocation(m_program, "uProjection");
-        m_uColorLoc = glGetUniformLocation(m_program, "uColor");
-        m_uUseTextureLoc = glGetUniformLocation(m_program, "uUseTexture");
-        m_uTextureLoc = glGetUniformLocation(m_program, "uTexture");
-        Logger::Info("Shader program built successfully");
-        return true;
-    }
-
-    void OpenGLRenderAdapter::UpdateShaderHotReload()
-    {
-        if (m_shaderReloadRequested)
-        {
-            m_shaderReloadRequested = false;
-            Logger::Info("Manual shader reload requested");
-            (void)BuildTestShaderProgram();
-            return;
-        }
-
-        if (m_vsPath.empty() || m_fsPath.empty())
-            return;
-        if (!std::filesystem::exists(m_vsPath) || !std::filesystem::exists(m_fsPath))
-            return;
-
-        const auto vsWrite = std::filesystem::last_write_time(m_vsPath);
-        const auto fsWrite = std::filesystem::last_write_time(m_fsPath);
-        if (vsWrite != m_vsLastWrite || fsWrite != m_fsLastWrite)
-        {
-            m_vsLastWrite = vsWrite;
-            m_fsLastWrite = fsWrite;
-            Logger::Info("Shader file change detected -> rebuilding program");
-            (void)BuildTestShaderProgram();
-        }
-    }
-
-    unsigned int OpenGLRenderAdapter::ResolveTexture(const std::string& texturePath)
-    {
-        if (texturePath.empty())
-            return 0;
-
-        const std::filesystem::path resolvedPath = ResolveAssetPath(texturePath);
-        const std::string key = resolvedPath.lexically_normal().generic_string();
-
-        TextureResource& resource = m_textureCache[key];
-        if (resource.loadAttempted)
-            return resource.glId;
-
-        resource.loadAttempted = true;
-
-        int width = 0;
-        int height = 0;
-        std::vector<unsigned char> rgbaPixels;
-        if (!LoadPpmTextureFile(resolvedPath, width, height, rgbaPixels))
-        {
-            Logger::Warn("Failed to load texture (PPM expected): ", resolvedPath.string());
-            return 0;
-        }
-
-        glGenTextures(1, &resource.glId);
-        glBindTexture(GL_TEXTURE_2D, resource.glId);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgbaPixels.data());
-        glGenerateMipmap(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-
-        Logger::Info("Loaded texture: ", resolvedPath.string());
-        return resource.glId;
-    }
-
     bool OpenGLRenderAdapter::OpenAdditionalWindow(const RenderConfig& cfg, float clearR, float clearG, float clearB)
     {
         if (m_windows.empty() || !m_windows[0].window)
@@ -760,51 +536,100 @@ namespace archi
         data.clearR = clearR;
         data.clearG = clearG;
         data.clearB = clearB;
-        for (std::size_t i = 0; i < m_meshes.size(); ++i)
-            data.vaos[i] = CreateVaoForCurrentContext(m_meshes[i]);
+        for (const auto& [meshHandle, mesh] : m_meshes)
+            data.vaos[meshHandle] = CreateVaoForCurrentContext(mesh);
 
-        m_windows.push_back(data);
+        m_windows.push_back(std::move(data));
         Logger::Info("Additional window created. Total windows: ", m_windows.size());
         return true;
     }
 
-    void OpenGLRenderAdapter::RequestShaderReload()
+    bool OpenGLRenderAdapter::InitGLObjects()
     {
-        m_shaderReloadRequested = true;
-    }
-
-    void OpenGLRenderAdapter::DestroyTextures()
-    {
-        for (auto& [_, resource] : m_textureCache)
-        {
-            if (resource.glId)
-            {
-                glDeleteTextures(1, &resource.glId);
-                resource.glId = 0;
-            }
-        }
-        m_textureCache.clear();
+        return true;
     }
 
     void OpenGLRenderAdapter::DestroyGLObjects()
     {
-        DestroyTextures();
-
-        if (m_program)
+        for (auto& [_, shader] : m_shaders)
         {
-            glDeleteProgram(m_program);
-            m_program = 0;
+            if (shader.program)
+                glDeleteProgram(shader.program);
         }
+        m_shaders.clear();
 
-        for (auto& mesh : m_meshes)
+        for (auto& [_, texture] : m_textures)
         {
+            if (texture.glId)
+                glDeleteTextures(1, &texture.glId);
+        }
+        m_textures.clear();
+
+        for (auto& [_, mesh] : m_meshes)
+        {
+            if (mesh.ebo)
+                glDeleteBuffers(1, &mesh.ebo);
             if (mesh.vbo)
-            {
                 glDeleteBuffers(1, &mesh.vbo);
-                mesh.vbo = 0;
-                mesh.vertexCount = 0;
-                mesh.drawMode = 0;
-            }
+        }
+        m_meshes.clear();
+    }
+
+    unsigned int OpenGLRenderAdapter::CreateVaoForCurrentContext(const MeshResource& mesh)
+    {
+        unsigned int vao = 0;
+        glGenVertexArrays(1, &vao);
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, mesh.vbo);
+        if (mesh.indexed)
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.ebo);
+
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, position)));
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, normal)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, uv)));
+
+        glBindVertexArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        if (!mesh.indexed)
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        return vao;
+    }
+
+    unsigned int OpenGLRenderAdapter::GetOrCreateVao(WindowData& window, MeshHandle meshHandle, const MeshResource& mesh)
+    {
+        const auto it = window.vaos.find(meshHandle);
+        if (it != window.vaos.end())
+            return it->second;
+
+        const unsigned int vao = CreateVaoForCurrentContext(mesh);
+        window.vaos.emplace(meshHandle, vao);
+        return vao;
+    }
+
+    void OpenGLRenderAdapter::DestroyWindowVaos(WindowData& window)
+    {
+        for (auto& [_, vao] : window.vaos)
+        {
+            if (vao)
+                glDeleteVertexArrays(1, &vao);
+        }
+        window.vaos.clear();
+    }
+
+    void OpenGLRenderAdapter::DestroyMeshVaos(MeshHandle meshHandle)
+    {
+        for (auto& window : m_windows)
+        {
+            const auto it = window.vaos.find(meshHandle);
+            if (it == window.vaos.end())
+                continue;
+
+            if (it->second)
+                glDeleteVertexArrays(1, &it->second);
+            window.vaos.erase(it);
         }
     }
 
@@ -850,5 +675,72 @@ namespace archi
         }
 
         return program;
+    }
+
+    OpenGLRenderAdapter::ShaderResource OpenGLRenderAdapter::BuildShaderResource(const ShaderSource& shaderSource)
+    {
+        ShaderResource resource{};
+
+        const unsigned int vs = CompileShader(GL_VERTEX_SHADER, shaderSource.vertexCode.c_str());
+        if (!vs)
+            return resource;
+
+        const unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, shaderSource.fragmentCode.c_str());
+        if (!fs)
+        {
+            glDeleteShader(vs);
+            return resource;
+        }
+
+        resource.program = LinkProgram(vs, fs);
+        glDeleteShader(vs);
+        glDeleteShader(fs);
+        if (!resource.program)
+            return resource;
+
+        resource.uModelLoc = glGetUniformLocation(resource.program, "uModel");
+        resource.uViewLoc = glGetUniformLocation(resource.program, "uView");
+        resource.uProjectionLoc = glGetUniformLocation(resource.program, "uProjection");
+        resource.uColorLoc = glGetUniformLocation(resource.program, "uColor");
+        resource.uUseTextureLoc = glGetUniformLocation(resource.program, "uUseTexture");
+        resource.uTextureLoc = glGetUniformLocation(resource.program, "uTexture");
+        return resource;
+    }
+
+    bool OpenGLRenderAdapter::BuildMeshResource(const MeshData& mesh, MeshResource& outResource)
+    {
+        if (mesh.vertices.empty())
+            return false;
+
+        MeshResource resource{};
+        resource.drawMode = kDefaultDrawMode;
+        resource.vertexCount = static_cast<int>(mesh.vertices.size());
+        resource.indexCount = static_cast<int>(mesh.indices.size());
+        resource.indexed = !mesh.indices.empty();
+
+        glGenBuffers(1, &resource.vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, resource.vbo);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(mesh.vertices.size() * sizeof(Vertex)),
+            mesh.vertices.data(),
+            GL_STATIC_DRAW);
+
+        if (resource.indexed)
+        {
+            glGenBuffers(1, &resource.ebo);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, resource.ebo);
+            glBufferData(
+                GL_ELEMENT_ARRAY_BUFFER,
+                static_cast<GLsizeiptr>(mesh.indices.size() * sizeof(std::uint32_t)),
+                mesh.indices.data(),
+                GL_STATIC_DRAW);
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+        outResource = resource;
+        return true;
     }
 }

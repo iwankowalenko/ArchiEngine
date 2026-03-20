@@ -1,0 +1,5 @@
+{
+  "vertex": "textured.vert",
+  "fragment": "textured.frag",
+  "hotReload": true
+}

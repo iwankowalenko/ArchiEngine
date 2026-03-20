@@ -1,0 +1,7 @@
+{
+  "shaderAsset": "shaders/textured.shader.json",
+  "textureAsset": "textures/sapeli.bmp",
+  "baseColor": [ 1.0, 1.0, 1.0, 1.0 ],
+  "useTexture": true,
+  "hotReload": true
+}

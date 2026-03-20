@@ -2,17 +2,20 @@
 
 #include "ECSComponents.h"
 #include "Logger.h"
-#include "MiniJson.h"
+
+#include <nlohmann/json.hpp>
 
 #include <fstream>
 #include <optional>
 #include <set>
-#include <sstream>
+#include <vector>
 
 namespace archi
 {
     namespace
     {
+        using json = nlohmann::json;
+
         struct SerializedEntityData
         {
             EntityId id = InvalidEntityId;
@@ -25,179 +28,108 @@ namespace archi
             std::optional<CameraController> cameraController{};
         };
 
-        JsonValue MakeVec3Json(const Vec3& value)
+        json ToJson(const Vec3& value)
         {
-            JsonValue array = JsonValue::MakeArray();
-            array.arrayValue.push_back(JsonValue::MakeNumber(value.x));
-            array.arrayValue.push_back(JsonValue::MakeNumber(value.y));
-            array.arrayValue.push_back(JsonValue::MakeNumber(value.z));
-            return array;
+            return json::array({ value.x, value.y, value.z });
         }
 
-        JsonValue MakeVec4Json(const Vec4& value)
+        json ToJson(const Vec4& value)
         {
-            JsonValue array = JsonValue::MakeArray();
-            array.arrayValue.push_back(JsonValue::MakeNumber(value.x));
-            array.arrayValue.push_back(JsonValue::MakeNumber(value.y));
-            array.arrayValue.push_back(JsonValue::MakeNumber(value.z));
-            array.arrayValue.push_back(JsonValue::MakeNumber(value.w));
-            return array;
+            return json::array({ value.x, value.y, value.z, value.w });
         }
 
-        bool ReadNumber(const JsonValue* value, double& outNumber)
+        bool ReadVec3(const json& value, Vec3& outValue)
         {
-            if (!value || !value->IsNumber())
+            if (!value.is_array() || value.size() != 3)
                 return false;
-            outNumber = value->numberValue;
+
+            outValue = {
+                value[0].get<float>(),
+                value[1].get<float>(),
+                value[2].get<float>()
+            };
             return true;
         }
 
-        bool ReadBool(const JsonValue* value, bool& outBool)
+        bool ReadVec4(const json& value, Vec4& outValue)
         {
-            if (!value || !value->IsBool())
+            if (!value.is_array() || value.size() != 4)
                 return false;
-            outBool = value->boolValue;
+
+            outValue = {
+                value[0].get<float>(),
+                value[1].get<float>(),
+                value[2].get<float>(),
+                value[3].get<float>()
+            };
             return true;
         }
 
-        bool ReadString(const JsonValue* value, std::string& outString)
+        std::string ReadOptionalString(const json& objectValue, const char* key, const std::string& defaultValue = {})
         {
-            if (!value || !value->IsString())
-                return false;
-            outString = value->stringValue;
-            return true;
+            if (!objectValue.contains(key) || objectValue[key].is_null())
+                return defaultValue;
+            if (!objectValue[key].is_string())
+                return defaultValue;
+            return objectValue[key].get<std::string>();
         }
 
-        bool ReadVec3(const JsonValue* value, Vec3& outVec)
+        std::string LegacyPrimitiveToMeshAsset(const std::string& primitive)
         {
-            if (!value || !value->IsArray() || value->arrayValue.size() != 3)
-                return false;
-
-            double x = 0.0;
-            double y = 0.0;
-            double z = 0.0;
-            return ReadNumber(&value->arrayValue[0], x) &&
-                ReadNumber(&value->arrayValue[1], y) &&
-                ReadNumber(&value->arrayValue[2], z) &&
-                ((outVec = Vec3{ static_cast<float>(x), static_cast<float>(y), static_cast<float>(z) }), true);
+            if (primitive == "Line")
+                return "models/cheburashka.obj";
+            if (primitive == "Triangle")
+                return "models/pyramid.obj";
+            if (primitive == "Quad")
+                return "models/plane.obj";
+            if (primitive == "Cube")
+                return "models/negr.obj";
+            return "models/negr.obj";
         }
 
-        bool ReadVec4(const JsonValue* value, Vec4& outVec)
+        bool ParseEntity(const json& entityValue, SerializedEntityData& outEntity, std::string& outError)
         {
-            if (!value || !value->IsArray() || value->arrayValue.size() != 4)
-                return false;
-
-            double x = 0.0;
-            double y = 0.0;
-            double z = 0.0;
-            double w = 0.0;
-            return ReadNumber(&value->arrayValue[0], x) &&
-                ReadNumber(&value->arrayValue[1], y) &&
-                ReadNumber(&value->arrayValue[2], z) &&
-                ReadNumber(&value->arrayValue[3], w) &&
-                ((outVec = Vec4{ static_cast<float>(x), static_cast<float>(y), static_cast<float>(z), static_cast<float>(w) }), true);
-        }
-
-        const char* PrimitiveTypeToString(PrimitiveType primitive)
-        {
-            switch (primitive)
-            {
-            case PrimitiveType::Line:
-                return "Line";
-            case PrimitiveType::Triangle:
-                return "Triangle";
-            case PrimitiveType::Quad:
-                return "Quad";
-            case PrimitiveType::Cube:
-                return "Cube";
-            default:
-                return "Triangle";
-            }
-        }
-
-        bool TryParsePrimitiveType(const std::string& text, PrimitiveType& outPrimitive)
-        {
-            if (text == "Line")
-            {
-                outPrimitive = PrimitiveType::Line;
-                return true;
-            }
-            if (text == "Triangle")
-            {
-                outPrimitive = PrimitiveType::Triangle;
-                return true;
-            }
-            if (text == "Quad")
-            {
-                outPrimitive = PrimitiveType::Quad;
-                return true;
-            }
-            if (text == "Cube")
-            {
-                outPrimitive = PrimitiveType::Cube;
-                return true;
-            }
-            return false;
-        }
-
-        bool ParseEntity(const JsonValue& entityValue, SerializedEntityData& outEntity, std::string& outError)
-        {
-            if (!entityValue.IsObject())
+            if (!entityValue.is_object())
             {
                 outError = "Entity must be an object";
                 return false;
             }
 
-            double idNumber = 0.0;
-            if (!ReadNumber(entityValue.Find("id"), idNumber))
+            if (!entityValue.contains("id") || !entityValue["id"].is_number_unsigned())
             {
                 outError = "Entity id is missing or invalid";
                 return false;
             }
 
-            outEntity.id = static_cast<EntityId>(idNumber);
+            outEntity.id = entityValue["id"].get<EntityId>();
             if (outEntity.id == InvalidEntityId)
             {
                 outError = "Entity id must be non-zero";
                 return false;
             }
 
-            const JsonValue* components = entityValue.Find("components");
-            if (!components || !components->IsObject())
+            if (!entityValue.contains("components") || !entityValue["components"].is_object())
             {
                 outError = "Entity components object is missing";
                 return false;
             }
 
-            if (const JsonValue* tagValue = components->Find("Tag"))
-            {
-                if (!tagValue->IsObject())
-                {
-                    outError = "Tag component must be an object";
-                    return false;
-                }
+            const json& components = entityValue["components"];
 
+            if (components.contains("Tag"))
+            {
                 Tag tag{};
-                if (!ReadString(tagValue->Find("name"), tag.name))
-                {
-                    outError = "Tag.name is missing or invalid";
-                    return false;
-                }
+                tag.name = components["Tag"].value("name", std::string{});
                 outEntity.tag = tag;
             }
 
-            if (const JsonValue* transformValue = components->Find("Transform"))
+            if (components.contains("Transform"))
             {
-                if (!transformValue->IsObject())
-                {
-                    outError = "Transform component must be an object";
-                    return false;
-                }
-
                 Transform transform{};
-                if (!ReadVec3(transformValue->Find("position"), transform.position) ||
-                    !ReadVec3(transformValue->Find("rotation"), transform.rotation) ||
-                    !ReadVec3(transformValue->Find("scale"), transform.scale))
+                const json& transformValue = components["Transform"];
+                if (!ReadVec3(transformValue.at("position"), transform.position) ||
+                    !ReadVec3(transformValue.at("rotation"), transform.rotation) ||
+                    !ReadVec3(transformValue.at("scale"), transform.scale))
                 {
                     outError = "Transform component is invalid";
                     return false;
@@ -205,263 +137,184 @@ namespace archi
                 outEntity.transform = transform;
             }
 
-            if (const JsonValue* meshValue = components->Find("MeshRenderer"))
+            if (components.contains("MeshRenderer"))
             {
-                if (!meshValue->IsObject())
-                {
-                    outError = "MeshRenderer component must be an object";
-                    return false;
-                }
-
                 MeshRenderer mesh{};
-                std::string primitiveText;
-                if (!ReadString(meshValue->Find("primitive"), primitiveText) ||
-                    !TryParsePrimitiveType(primitiveText, mesh.primitive) ||
-                    !ReadVec4(meshValue->Find("color"), mesh.color))
+                const json& meshValue = components["MeshRenderer"];
+
+                if (meshValue.contains("meshAsset"))
                 {
-                    outError = "MeshRenderer component is invalid";
-                    return false;
+                    mesh.meshAsset = ReadOptionalString(meshValue, "meshAsset");
+                    mesh.materialAsset = ReadOptionalString(meshValue, "materialAsset");
+                    mesh.textureAsset = ReadOptionalString(meshValue, "textureAsset");
+                    mesh.shaderAsset = ReadOptionalString(meshValue, "shaderAsset");
+                    mesh.asyncLoad = meshValue.value("asyncLoad", true);
+                    if (meshValue.contains("tintColor") && !ReadVec4(meshValue["tintColor"], mesh.tintColor))
+                    {
+                        outError = "MeshRenderer.tintColor is invalid";
+                        return false;
+                    }
+                }
+                else
+                {
+                    const std::string primitive = ReadOptionalString(meshValue, "primitive", "Cube");
+                    mesh.meshAsset = LegacyPrimitiveToMeshAsset(primitive);
+                    mesh.textureAsset = ReadOptionalString(meshValue, "texturePath");
+                    mesh.shaderAsset = "shaders/textured.shader.json";
+                    mesh.asyncLoad = true;
+                    if (meshValue.contains("color") && !ReadVec4(meshValue["color"], mesh.tintColor))
+                    {
+                        outError = "Legacy MeshRenderer.color is invalid";
+                        return false;
+                    }
                 }
 
-                const JsonValue* texturePath = meshValue->Find("texturePath");
-                if (texturePath && !texturePath->IsNull() && !ReadString(texturePath, mesh.texturePath))
+                if (mesh.meshAsset.empty())
                 {
-                    outError = "MeshRenderer.texturePath is invalid";
-                    return false;
-                }
-
-                const JsonValue* materialName = meshValue->Find("materialName");
-                if (materialName && !materialName->IsNull() && !ReadString(materialName, mesh.materialName))
-                {
-                    outError = "MeshRenderer.materialName is invalid";
+                    outError = "MeshRenderer resource references are incomplete";
                     return false;
                 }
 
                 outEntity.meshRenderer = mesh;
             }
 
-            if (const JsonValue* hierarchyValue = components->Find("Hierarchy"))
+            if (components.contains("Hierarchy"))
             {
-                if (!hierarchyValue->IsObject())
-                {
-                    outError = "Hierarchy component must be an object";
-                    return false;
-                }
-
                 Hierarchy hierarchy{};
-                if (const JsonValue* parentValue = hierarchyValue->Find("parent"))
+                const json& hierarchyValue = components["Hierarchy"];
+                if (hierarchyValue.contains("parent"))
+                    hierarchy.parent = Entity{ hierarchyValue["parent"].get<EntityId>() };
+
+                if (hierarchyValue.contains("children") && hierarchyValue["children"].is_array())
                 {
-                    double parentId = 0.0;
-                    if (!ReadNumber(parentValue, parentId))
-                    {
-                        outError = "Hierarchy.parent is invalid";
-                        return false;
-                    }
-                    hierarchy.parent = Entity{ static_cast<EntityId>(parentId) };
+                    for (const auto& childValue : hierarchyValue["children"])
+                        hierarchy.children.push_back(Entity{ childValue.get<EntityId>() });
                 }
-
-                if (const JsonValue* childrenValue = hierarchyValue->Find("children"))
-                {
-                    if (!childrenValue->IsArray())
-                    {
-                        outError = "Hierarchy.children must be an array";
-                        return false;
-                    }
-
-                    for (const JsonValue& childValue : childrenValue->arrayValue)
-                    {
-                        double childId = 0.0;
-                        if (!ReadNumber(&childValue, childId))
-                        {
-                            outError = "Hierarchy.children contains invalid id";
-                            return false;
-                        }
-                        hierarchy.children.push_back(Entity{ static_cast<EntityId>(childId) });
-                    }
-                }
-
                 outEntity.hierarchy = hierarchy;
             }
 
-            if (const JsonValue* animationValue = components->Find("SpinAnimation"))
+            if (components.contains("SpinAnimation"))
             {
-                if (!animationValue->IsObject())
-                {
-                    outError = "SpinAnimation component must be an object";
-                    return false;
-                }
-
                 SpinAnimation animation{};
-                double amplitude = 0.0;
-                double speed = 0.0;
-                double elapsed = 0.0;
-                if (!ReadVec3(animationValue->Find("angularVelocity"), animation.angularVelocity) ||
-                    !ReadVec3(animationValue->Find("translationAxis"), animation.translationAxis) ||
-                    !ReadNumber(animationValue->Find("translationAmplitude"), amplitude) ||
-                    !ReadNumber(animationValue->Find("translationSpeed"), speed) ||
-                    !ReadVec3(animationValue->Find("anchorPosition"), animation.anchorPosition) ||
-                    !ReadNumber(animationValue->Find("elapsed"), elapsed))
+                const json& value = components["SpinAnimation"];
+                if (!ReadVec3(value.at("angularVelocity"), animation.angularVelocity) ||
+                    !ReadVec3(value.at("translationAxis"), animation.translationAxis) ||
+                    !ReadVec3(value.at("anchorPosition"), animation.anchorPosition))
                 {
-                    outError = "SpinAnimation component is invalid";
+                    outError = "SpinAnimation vectors are invalid";
                     return false;
                 }
 
-                animation.translationAmplitude = static_cast<float>(amplitude);
-                animation.translationSpeed = static_cast<float>(speed);
-                animation.elapsed = elapsed;
+                animation.translationAmplitude = value.value("translationAmplitude", 0.0f);
+                animation.translationSpeed = value.value("translationSpeed", 0.0f);
+                animation.elapsed = value.value("elapsed", 0.0);
                 outEntity.spinAnimation = animation;
             }
 
-            if (const JsonValue* cameraValue = components->Find("Camera"))
+            if (components.contains("Camera"))
             {
-                if (!cameraValue->IsObject())
-                {
-                    outError = "Camera component must be an object";
-                    return false;
-                }
-
                 Camera camera{};
-                double halfHeight = 0.0;
-                double nearPlane = 0.0;
-                double farPlane = 0.0;
-                if (!ReadBool(cameraValue->Find("isPrimary"), camera.isPrimary) ||
-                    !ReadNumber(cameraValue->Find("orthographicHalfHeight"), halfHeight) ||
-                    !ReadNumber(cameraValue->Find("nearPlane"), nearPlane) ||
-                    !ReadNumber(cameraValue->Find("farPlane"), farPlane))
-                {
-                    outError = "Camera component is invalid";
-                    return false;
-                }
-
-                camera.orthographicHalfHeight = static_cast<float>(halfHeight);
-                camera.nearPlane = static_cast<float>(nearPlane);
-                camera.farPlane = static_cast<float>(farPlane);
+                const json& value = components["Camera"];
+                camera.isPrimary = value.value("isPrimary", true);
+                camera.orthographicHalfHeight = value.value("orthographicHalfHeight", 1.25f);
+                camera.nearPlane = value.value("nearPlane", -20.0f);
+                camera.farPlane = value.value("farPlane", 20.0f);
                 outEntity.camera = camera;
             }
 
-            if (const JsonValue* controllerValue = components->Find("CameraController"))
+            if (components.contains("CameraController"))
             {
-                if (!controllerValue->IsObject())
-                {
-                    outError = "CameraController component must be an object";
-                    return false;
-                }
-
                 CameraController controller{};
-                double moveSpeed = 0.0;
-                double zoomSpeed = 0.0;
-                if (!ReadNumber(controllerValue->Find("moveSpeed"), moveSpeed) ||
-                    !ReadNumber(controllerValue->Find("zoomSpeed"), zoomSpeed))
-                {
-                    outError = "CameraController component is invalid";
-                    return false;
-                }
-
-                controller.moveSpeed = static_cast<float>(moveSpeed);
-                controller.zoomSpeed = static_cast<float>(zoomSpeed);
+                const json& value = components["CameraController"];
+                controller.moveSpeed = value.value("moveSpeed", 2.2f);
+                controller.zoomSpeed = value.value("zoomSpeed", 1.2f);
                 outEntity.cameraController = controller;
             }
 
             return true;
         }
-
-        std::string ReadTextFile(const std::filesystem::path& path)
-        {
-            std::ifstream file(path, std::ios::in | std::ios::binary);
-            std::ostringstream ss;
-            ss << file.rdbuf();
-            return ss.str();
-        }
     }
 
     bool SceneSerializer::SaveWorld(const World& world, const std::filesystem::path& path)
     {
-        JsonValue root = JsonValue::MakeObject();
-        root.objectValue["version"] = JsonValue::MakeNumber(1.0);
+        json root{};
+        root["version"] = 4;
+        root["entities"] = json::array();
 
-        JsonValue entities = JsonValue::MakeArray();
         world.ForEachEntity([&](Entity entity) {
-            JsonValue entityValue = JsonValue::MakeObject();
-            entityValue.objectValue["id"] = JsonValue::MakeNumber(static_cast<double>(entity.id));
-
-            JsonValue components = JsonValue::MakeObject();
+            json entityValue{};
+            entityValue["id"] = entity.id;
+            entityValue["components"] = json::object();
+            json& components = entityValue["components"];
 
             if (const auto* tag = world.GetComponent<Tag>(entity))
-            {
-                JsonValue tagValue = JsonValue::MakeObject();
-                tagValue.objectValue["name"] = JsonValue::MakeString(tag->name);
-                components.objectValue["Tag"] = std::move(tagValue);
-            }
+                components["Tag"] = { { "name", tag->name } };
 
             if (const auto* transform = world.GetComponent<Transform>(entity))
             {
-                JsonValue transformValue = JsonValue::MakeObject();
-                transformValue.objectValue["position"] = MakeVec3Json(transform->position);
-                transformValue.objectValue["rotation"] = MakeVec3Json(transform->rotation);
-                transformValue.objectValue["scale"] = MakeVec3Json(transform->scale);
-                components.objectValue["Transform"] = std::move(transformValue);
+                components["Transform"] = {
+                    { "position", ToJson(transform->position) },
+                    { "rotation", ToJson(transform->rotation) },
+                    { "scale", ToJson(transform->scale) }
+                };
             }
 
             if (const auto* mesh = world.GetComponent<MeshRenderer>(entity))
             {
-                JsonValue meshValue = JsonValue::MakeObject();
-                meshValue.objectValue["primitive"] = JsonValue::MakeString(PrimitiveTypeToString(mesh->primitive));
-                meshValue.objectValue["color"] = MakeVec4Json(mesh->color);
-                meshValue.objectValue["texturePath"] = mesh->texturePath.empty()
-                    ? JsonValue::MakeNull()
-                    : JsonValue::MakeString(mesh->texturePath);
-                meshValue.objectValue["materialName"] = JsonValue::MakeString(mesh->materialName);
-                components.objectValue["MeshRenderer"] = std::move(meshValue);
+                components["MeshRenderer"] = {
+                    { "meshAsset", mesh->meshAsset },
+                    { "materialAsset", mesh->materialAsset },
+                    { "textureAsset", mesh->textureAsset },
+                    { "shaderAsset", mesh->shaderAsset },
+                    { "tintColor", ToJson(mesh->tintColor) },
+                    { "asyncLoad", mesh->asyncLoad }
+                };
             }
 
             if (const auto* hierarchy = world.GetComponent<Hierarchy>(entity))
             {
-                JsonValue hierarchyValue = JsonValue::MakeObject();
-                hierarchyValue.objectValue["parent"] = JsonValue::MakeNumber(static_cast<double>(hierarchy->parent.id));
-
-                JsonValue children = JsonValue::MakeArray();
+                json children = json::array();
                 for (const Entity child : hierarchy->children)
-                    children.arrayValue.push_back(JsonValue::MakeNumber(static_cast<double>(child.id)));
-                hierarchyValue.objectValue["children"] = std::move(children);
+                    children.push_back(child.id);
 
-                components.objectValue["Hierarchy"] = std::move(hierarchyValue);
+                components["Hierarchy"] = {
+                    { "parent", hierarchy->parent.id },
+                    { "children", std::move(children) }
+                };
             }
 
             if (const auto* animation = world.GetComponent<SpinAnimation>(entity))
             {
-                JsonValue animationValue = JsonValue::MakeObject();
-                animationValue.objectValue["angularVelocity"] = MakeVec3Json(animation->angularVelocity);
-                animationValue.objectValue["translationAxis"] = MakeVec3Json(animation->translationAxis);
-                animationValue.objectValue["translationAmplitude"] = JsonValue::MakeNumber(animation->translationAmplitude);
-                animationValue.objectValue["translationSpeed"] = JsonValue::MakeNumber(animation->translationSpeed);
-                animationValue.objectValue["anchorPosition"] = MakeVec3Json(animation->anchorPosition);
-                animationValue.objectValue["elapsed"] = JsonValue::MakeNumber(animation->elapsed);
-                components.objectValue["SpinAnimation"] = std::move(animationValue);
+                components["SpinAnimation"] = {
+                    { "angularVelocity", ToJson(animation->angularVelocity) },
+                    { "translationAxis", ToJson(animation->translationAxis) },
+                    { "translationAmplitude", animation->translationAmplitude },
+                    { "translationSpeed", animation->translationSpeed },
+                    { "anchorPosition", ToJson(animation->anchorPosition) },
+                    { "elapsed", animation->elapsed }
+                };
             }
 
             if (const auto* camera = world.GetComponent<Camera>(entity))
             {
-                JsonValue cameraValue = JsonValue::MakeObject();
-                cameraValue.objectValue["isPrimary"] = JsonValue::MakeBool(camera->isPrimary);
-                cameraValue.objectValue["orthographicHalfHeight"] = JsonValue::MakeNumber(camera->orthographicHalfHeight);
-                cameraValue.objectValue["nearPlane"] = JsonValue::MakeNumber(camera->nearPlane);
-                cameraValue.objectValue["farPlane"] = JsonValue::MakeNumber(camera->farPlane);
-                components.objectValue["Camera"] = std::move(cameraValue);
+                components["Camera"] = {
+                    { "isPrimary", camera->isPrimary },
+                    { "orthographicHalfHeight", camera->orthographicHalfHeight },
+                    { "nearPlane", camera->nearPlane },
+                    { "farPlane", camera->farPlane }
+                };
             }
 
             if (const auto* controller = world.GetComponent<CameraController>(entity))
             {
-                JsonValue controllerValue = JsonValue::MakeObject();
-                controllerValue.objectValue["moveSpeed"] = JsonValue::MakeNumber(controller->moveSpeed);
-                controllerValue.objectValue["zoomSpeed"] = JsonValue::MakeNumber(controller->zoomSpeed);
-                components.objectValue["CameraController"] = std::move(controllerValue);
+                components["CameraController"] = {
+                    { "moveSpeed", controller->moveSpeed },
+                    { "zoomSpeed", controller->zoomSpeed }
+                };
             }
 
-            entityValue.objectValue["components"] = std::move(components);
-            entities.arrayValue.push_back(std::move(entityValue));
+            root["entities"].push_back(std::move(entityValue));
         });
-
-        root.objectValue["entities"] = std::move(entities);
 
         if (const auto parentPath = path.parent_path(); !parentPath.empty())
             std::filesystem::create_directories(parentPath);
@@ -473,7 +326,7 @@ namespace archi
             return false;
         }
 
-        file << WriteJson(root, true, 2);
+        file << root.dump(2);
         Logger::Info("Scene saved to: ", path.string());
         return true;
     }
@@ -487,17 +340,18 @@ namespace archi
             return false;
         }
 
-        const std::string jsonText = ReadTextFile(path);
-        JsonValue root{};
-        std::string parseError;
-        if (!ParseJson(jsonText, root, &parseError))
+        json root{};
+        try
         {
-            Logger::Error("Failed to parse scene JSON: ", parseError);
+            file >> root;
+        }
+        catch (const std::exception& ex)
+        {
+            Logger::Error("Failed to parse scene JSON: ", ex.what());
             return false;
         }
 
-        const JsonValue* entitiesValue = root.Find("entities");
-        if (!entitiesValue || !entitiesValue->IsArray())
+        if (!root.contains("entities") || !root["entities"].is_array())
         {
             Logger::Error("Scene JSON does not contain an entities array");
             return false;
@@ -505,12 +359,11 @@ namespace archi
 
         std::vector<SerializedEntityData> serializedEntities{};
         std::set<EntityId> uniqueIds{};
-        serializedEntities.reserve(entitiesValue->arrayValue.size());
 
-        for (const JsonValue& entityValue : entitiesValue->arrayValue)
+        for (const auto& entityValue : root["entities"])
         {
             SerializedEntityData entityData{};
-            std::string error;
+            std::string error{};
             if (!ParseEntity(entityValue, entityData, error))
             {
                 Logger::Error("Failed to parse entity from scene: ", error);

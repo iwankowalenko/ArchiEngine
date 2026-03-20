@@ -7,6 +7,7 @@
 #include "ECS.h"
 #include "ECSComponents.h"
 #include "GameStateMachine.h"
+#include "ResourceManager.h"
 #include "RenderAdapter.h"
 
 namespace archi
@@ -42,14 +43,18 @@ namespace archi
         Entity FindEntityByTag(const char* name) const;
         bool SaveScene();
         bool LoadScene();
+        void RequestShaderReload();
 
         GameStateMachine& States() { return m_states; }
         const GameStateMachine& States() const { return m_states; }
+        ResourceManager& Resources() { return m_resources; }
+        const ResourceManager& Resources() const { return m_resources; }
 
     private:
         void BuildDemoScene();
         void RefreshSceneBindings();
         bool LoadOrCreateScene();
+        bool WarmUpSceneResources();
 
         bool m_initialized = false;
         bool m_quitRequested = false;
@@ -59,6 +64,7 @@ namespace archi
         GameStateMachine m_states{};
         DeltaTimer m_timer{};
         World m_world{};
+        ResourceManager m_resources{};
         Entity m_controlledEntity{};
         std::filesystem::path m_scenePath{};
     };

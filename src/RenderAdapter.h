@@ -1,8 +1,10 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 #include "Math2D.h"
+#include "Resources.h"
 
 namespace archi
 {
@@ -42,22 +44,16 @@ namespace archi
         bool vsync = true;
     };
 
-    enum class PrimitiveType
+    struct RenderMeshCommand
     {
-        Line,
-        Triangle,
-        Quad,
-        Cube
-    };
-
-    struct RenderPrimitiveCommand
-    {
-        PrimitiveType primitive = PrimitiveType::Triangle;
+        MeshHandle mesh = InvalidMeshHandle;
+        TextureHandle texture = InvalidTextureHandle;
+        ShaderHandle shader = InvalidShaderHandle;
         Mat4 model = Mat4::Identity();
         Mat4 view = Mat4::Identity();
         Mat4 projection = Mat4::Identity();
         Vec4 color{ 1.0f, 1.0f, 1.0f, 1.0f };
-        std::string texturePath{};
+        bool useTexture = true;
     };
 
     class IRenderAdapter
@@ -69,7 +65,13 @@ namespace archi
         virtual void Shutdown() = 0;
 
         virtual void BeginFrame() = 0;
-        virtual void DrawPrimitive(const RenderPrimitiveCommand& command) = 0;
+        virtual MeshHandle UploadMesh(const MeshData& mesh) = 0;
+        virtual bool ReloadMesh(MeshHandle handle, const MeshData& mesh) = 0;
+        virtual TextureHandle CreateTexture(const TextureData& texture) = 0;
+        virtual bool ReloadTexture(TextureHandle handle, const TextureData& texture) = 0;
+        virtual ShaderHandle CreateShaderProgram(const ShaderSource& shaderSource) = 0;
+        virtual bool ReloadShaderProgram(ShaderHandle handle, const ShaderSource& shaderSource) = 0;
+        virtual void DrawMesh(const RenderMeshCommand& command) = 0;
         virtual void EndFrame() = 0;
 
         virtual void PollEvents() = 0;
@@ -89,16 +91,6 @@ namespace archi
 
         // Positive = wheel up, negative = wheel down. Returns accumulated delta and resets it to 0.
         virtual float ConsumeScrollDeltaY() = 0;
-
-        virtual void DrawTestPrimitive(const Transform2D& transform)
-        {
-            RenderPrimitiveCommand command{};
-            command.primitive = PrimitiveType::Triangle;
-            command.model = MakeTransformMatrix(transform);
-            command.projection = MakeOrthographicProjection(AspectRatio(), 1.0f, -10.0f, 10.0f);
-            command.color = { 0.15f, 0.85f, 0.35f, 1.0f };
-            DrawPrimitive(command);
-        }
 
         // Optional features (default: unsupported).
         virtual bool OpenAdditionalWindow(const RenderConfig& /*cfg*/, float /*clearR*/, float /*clearG*/, float /*clearB*/)
