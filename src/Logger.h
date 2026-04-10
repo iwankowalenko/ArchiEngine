@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <fstream>
 #include <mutex>
 #include <sstream>
@@ -66,6 +67,11 @@ namespace archi
     private:
         static inline std::mutex s_mutex{};
         static inline std::ofstream s_file{};
+        static inline std::ofstream s_traceFile{};
+        static inline std::ofstream s_runtimeFile{};
+        static inline std::filesystem::path s_logFilePath{};
+        static inline std::filesystem::path s_traceFilePath{};
+        static inline std::filesystem::path s_runtimeFilePath{};
         static inline LogLevel s_minLevel = LogLevel::Trace;
         static inline bool s_initialized = false;
     };

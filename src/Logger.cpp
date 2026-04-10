@@ -2,11 +2,25 @@
 
 #include <chrono>
 #include <ctime>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 
 namespace archi
 {
+    namespace
+    {
+        std::filesystem::path MakeSiblingLogPath(
+            const std::filesystem::path& basePath,
+            const std::string& suffix)
+        {
+            const std::filesystem::path parentPath = basePath.parent_path();
+            const std::string fileName =
+                basePath.stem().string() + suffix + basePath.extension().string();
+            return parentPath.empty() ? std::filesystem::path(fileName) : (parentPath / fileName);
+        }
+    }
+
     static std::string NowTimestamp()
     {
         using namespace std::chrono;
@@ -34,12 +48,24 @@ namespace archi
             if (s_initialized)
                 return;
 
-            s_file.open(logFilePath, std::ios::out | std::ios::app);
+            s_logFilePath = std::filesystem::path(logFilePath);
+            s_traceFilePath = MakeSiblingLogPath(s_logFilePath, "_trace");
+            s_runtimeFilePath = MakeSiblingLogPath(s_logFilePath, "_runtime");
+
+            s_file.open(s_logFilePath, std::ios::out | std::ios::app);
+            s_traceFile.open(s_traceFilePath, std::ios::out | std::ios::app);
+            s_runtimeFile.open(s_runtimeFilePath, std::ios::out | std::ios::app);
             s_initialized = true;
         }
 
         // Log outside the mutex to avoid self-deadlock.
-        Logger::Info("Logger initialized. Log file: ", logFilePath);
+        Logger::Info(
+            "Logger initialized. Combined log: ",
+            s_logFilePath.string(),
+            " | runtime log: ",
+            s_runtimeFilePath.string(),
+            " | trace log: ",
+            s_traceFilePath.string());
     }
 
     void Logger::Shutdown()
@@ -59,6 +85,14 @@ namespace archi
             std::lock_guard<std::mutex> lock(s_mutex);
             if (s_file.is_open())
                 s_file.close();
+            if (s_traceFile.is_open())
+                s_traceFile.close();
+            if (s_runtimeFile.is_open())
+                s_runtimeFile.close();
+
+            s_logFilePath.clear();
+            s_traceFilePath.clear();
+            s_runtimeFilePath.clear();
             s_initialized = false;
         }
     }
@@ -92,7 +126,18 @@ namespace archi
 
         const std::string line = "[" + NowTimestamp() + "][" + ToString(level) + "] " + message;
 
-        std::cout << line << std::endl;
+        if (level == LogLevel::Trace)
+        {
+            if (s_traceFile.is_open())
+                s_traceFile << line << std::endl;
+        }
+        else
+        {
+            std::cout << line << std::endl;
+            if (s_runtimeFile.is_open())
+                s_runtimeFile << line << std::endl;
+        }
+
         if (s_file.is_open())
             s_file << line << std::endl;
     }

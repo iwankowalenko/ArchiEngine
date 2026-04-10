@@ -6,7 +6,9 @@
 #include "DeltaTimer.h"
 #include "ECS.h"
 #include "ECSComponents.h"
+#include "EventBus.h"
 #include "GameStateMachine.h"
+#include "InputManager.h"
 #include "ResourceManager.h"
 #include "RenderAdapter.h"
 
@@ -43,12 +45,19 @@ namespace archi
         Entity FindEntityByTag(const char* name) const;
         bool SaveScene();
         bool LoadScene();
+        bool ResetSceneToDefault();
         void RequestShaderReload();
 
         GameStateMachine& States() { return m_states; }
         const GameStateMachine& States() const { return m_states; }
         ResourceManager& Resources() { return m_resources; }
         const ResourceManager& Resources() const { return m_resources; }
+        InputManager& Input() { return m_input; }
+        const InputManager& Input() const { return m_input; }
+        EventBus& Events() { return m_events; }
+        const EventBus& Events() const { return m_events; }
+        bool IsPhysicsDebugEnabled() const { return m_debugPhysicsEnabled; }
+        void TogglePhysicsDebug() { m_debugPhysicsEnabled = !m_debugPhysicsEnabled; }
 
     private:
         void BuildDemoScene();
@@ -59,14 +68,18 @@ namespace archi
         bool m_initialized = false;
         bool m_quitRequested = false;
         bool m_sceneUpdateEnabled = true;
+        bool m_debugPhysicsEnabled = false;
 
         std::unique_ptr<IRenderAdapter> m_renderer{};
         GameStateMachine m_states{};
         DeltaTimer m_timer{};
         World m_world{};
         ResourceManager m_resources{};
+        InputManager m_input{};
+        EventBus m_events{};
         Entity m_controlledEntity{};
         std::filesystem::path m_scenePath{};
+        double m_fixedUpdateAccumulator = 0.0;
     };
 }
 

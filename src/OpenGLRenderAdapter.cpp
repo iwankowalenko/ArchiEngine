@@ -5,6 +5,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <array>
 #include <cstddef>
 #include <vector>
 
@@ -13,6 +14,32 @@ namespace archi
     namespace
     {
         constexpr unsigned int kDefaultDrawMode = GL_TRIANGLES;
+
+        constexpr const char* kDebugVertexShader = R"(
+            #version 330 core
+            layout(location = 0) in vec3 aPos;
+
+            uniform mat4 uModel;
+            uniform mat4 uView;
+            uniform mat4 uProjection;
+
+            void main()
+            {
+                gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
+            }
+        )";
+
+        constexpr const char* kDebugFragmentShader = R"(
+            #version 330 core
+            uniform vec4 uColor;
+
+            out vec4 FragColor;
+
+            void main()
+            {
+                FragColor = uColor;
+            }
+        )";
     }
 
     std::size_t OpenGLRenderAdapter::KeyToIndex(Key key)
@@ -37,6 +64,9 @@ namespace archi
         case Key::R: return 15;
         case Key::K: return 16;
         case Key::L: return 17;
+        case Key::M: return 18;
+        case Key::Space: return 19;
+        case Key::F3: return 20;
         default: return static_cast<std::size_t>(-1);
         }
     }
@@ -84,6 +114,9 @@ namespace archi
         case GLFW_KEY_R: setDown(Key::R); break;
         case GLFW_KEY_K: setDown(Key::K); break;
         case GLFW_KEY_L: setDown(Key::L); break;
+        case GLFW_KEY_M: setDown(Key::M); break;
+        case GLFW_KEY_SPACE: setDown(Key::Space); break;
+        case GLFW_KEY_F3: setDown(Key::F3); break;
         default: break;
         }
     }
@@ -102,6 +135,11 @@ namespace archi
         case GLFW_MOUSE_BUTTON_RIGHT: setDown(MouseButton::Right); break;
         default: break;
         }
+    }
+
+    void OpenGLRenderAdapter::OnCursorPositionEvent(double xpos, double ypos)
+    {
+        m_mousePosition = { static_cast<float>(xpos), static_cast<float>(ypos) };
     }
 
     void OpenGLRenderAdapter::OnScrollEvent(double yoffset)
@@ -149,6 +187,11 @@ namespace archi
             auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(window));
             if (self)
                 self->OnMouseButtonEvent(button, action);
+        });
+        glfwSetCursorPosCallback(primary, [](GLFWwindow* window, double xpos, double ypos) {
+            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(window));
+            if (self)
+                self->OnCursorPositionEvent(xpos, ypos);
         });
         glfwSetScrollCallback(primary, [](GLFWwindow* window, double, double yoffset) {
             auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(window));
@@ -206,17 +249,17 @@ namespace archi
 
     void OpenGLRenderAdapter::BeginFrame()
     {
-        for (std::size_t i = 1; i < m_windows.size();)
+        for (std::size_t index = 1; index < m_windows.size();)
         {
-            if (m_windows[i].window && glfwWindowShouldClose(m_windows[i].window))
+            if (m_windows[index].window && glfwWindowShouldClose(m_windows[index].window))
             {
-                glfwMakeContextCurrent(m_windows[i].window);
-                DestroyWindowVaos(m_windows[i]);
-                glfwDestroyWindow(m_windows[i].window);
-                m_windows.erase(m_windows.begin() + static_cast<std::ptrdiff_t>(i));
+                glfwMakeContextCurrent(m_windows[index].window);
+                DestroyWindowVaos(m_windows[index]);
+                glfwDestroyWindow(m_windows[index].window);
+                m_windows.erase(m_windows.begin() + static_cast<std::ptrdiff_t>(index));
                 continue;
             }
-            ++i;
+            ++index;
         }
 
         for (auto& window : m_windows)
@@ -248,6 +291,7 @@ namespace archi
         {
             if (!window.window)
                 continue;
+
             glfwMakeContextCurrent(window.window);
             window.vaos[handle] = CreateVaoForCurrentContext(resource);
         }
@@ -429,6 +473,73 @@ namespace archi
         }
     }
 
+    void OpenGLRenderAdapter::DrawDebugBox(const RenderDebugBoxCommand& command)
+    {
+        if (m_debugBox.program == 0)
+            return;
+
+        glDisable(GL_CULL_FACE);
+
+        for (auto& window : m_windows)
+        {
+            if (!window.window || window.debugBoxVao == 0)
+                continue;
+
+            glfwMakeContextCurrent(window.window);
+            glUseProgram(m_debugBox.program);
+            glUniformMatrix4fv(m_debugBox.uModelLoc, 1, GL_FALSE, command.model.data());
+            glUniformMatrix4fv(m_debugBox.uViewLoc, 1, GL_FALSE, command.view.data());
+            glUniformMatrix4fv(m_debugBox.uProjectionLoc, 1, GL_FALSE, command.projection.data());
+            glUniform4f(m_debugBox.uColorLoc, command.color.x, command.color.y, command.color.z, command.color.w);
+            glBindVertexArray(window.debugBoxVao);
+            glLineWidth(2.0f);
+            glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, nullptr);
+            glBindVertexArray(0);
+        }
+
+        glEnable(GL_CULL_FACE);
+    }
+
+    void OpenGLRenderAdapter::DrawDebugSphere(const RenderDebugSphereCommand& command)
+    {
+        if (m_debugBox.program == 0 || m_debugBox.circleVertexCount <= 0)
+            return;
+
+        glDisable(GL_CULL_FACE);
+
+        const Mat4 rotateX = MakeRotationXMatrix(1.57079632679f);
+        const Mat4 rotateY = MakeRotationYMatrix(1.57079632679f);
+
+        for (auto& window : m_windows)
+        {
+            if (!window.window || window.debugCircleVao == 0)
+                continue;
+
+            glfwMakeContextCurrent(window.window);
+            glUseProgram(m_debugBox.program);
+            glUniformMatrix4fv(m_debugBox.uViewLoc, 1, GL_FALSE, command.view.data());
+            glUniformMatrix4fv(m_debugBox.uProjectionLoc, 1, GL_FALSE, command.projection.data());
+            glUniform4f(m_debugBox.uColorLoc, command.color.x, command.color.y, command.color.z, command.color.w);
+            glBindVertexArray(window.debugCircleVao);
+            glLineWidth(2.0f);
+
+            glUniformMatrix4fv(m_debugBox.uModelLoc, 1, GL_FALSE, command.model.data());
+            glDrawArrays(GL_LINE_LOOP, 0, m_debugBox.circleVertexCount);
+
+            const Mat4 modelX = command.model * rotateX;
+            glUniformMatrix4fv(m_debugBox.uModelLoc, 1, GL_FALSE, modelX.data());
+            glDrawArrays(GL_LINE_LOOP, 0, m_debugBox.circleVertexCount);
+
+            const Mat4 modelY = command.model * rotateY;
+            glUniformMatrix4fv(m_debugBox.uModelLoc, 1, GL_FALSE, modelY.data());
+            glDrawArrays(GL_LINE_LOOP, 0, m_debugBox.circleVertexCount);
+
+            glBindVertexArray(0);
+        }
+
+        glEnable(GL_CULL_FACE);
+    }
+
     void OpenGLRenderAdapter::EndFrame()
     {
         for (auto& window : m_windows)
@@ -486,6 +597,11 @@ namespace archi
         return index < m_mouseDown.size() ? (m_mouseDown[index] != 0) : false;
     }
 
+    Vec2 OpenGLRenderAdapter::MousePosition() const
+    {
+        return m_mousePosition;
+    }
+
     float OpenGLRenderAdapter::ConsumeScrollDeltaY()
     {
         const float value = m_scrollYAccum;
@@ -521,6 +637,11 @@ namespace archi
             if (self)
                 self->OnMouseButtonEvent(button, action);
         });
+        glfwSetCursorPosCallback(window, [](GLFWwindow* w, double xpos, double ypos) {
+            auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(w));
+            if (self)
+                self->OnCursorPositionEvent(xpos, ypos);
+        });
         glfwSetScrollCallback(window, [](GLFWwindow* w, double, double yoffset) {
             auto* self = static_cast<OpenGLRenderAdapter*>(glfwGetWindowUserPointer(w));
             if (self)
@@ -538,6 +659,10 @@ namespace archi
         data.clearB = clearB;
         for (const auto& [meshHandle, mesh] : m_meshes)
             data.vaos[meshHandle] = CreateVaoForCurrentContext(mesh);
+        if (m_debugBox.boxVbo != 0 && m_debugBox.boxEbo != 0)
+            data.debugBoxVao = CreateDebugVaoForCurrentContext();
+        if (m_debugBox.circleVbo != 0)
+            data.debugCircleVao = CreateDebugCircleVaoForCurrentContext();
 
         m_windows.push_back(std::move(data));
         Logger::Info("Additional window created. Total windows: ", m_windows.size());
@@ -546,11 +671,13 @@ namespace archi
 
     bool OpenGLRenderAdapter::InitGLObjects()
     {
-        return true;
+        return InitDebugObjects();
     }
 
     void OpenGLRenderAdapter::DestroyGLObjects()
     {
+        DestroyDebugObjects();
+
         for (auto& [_, shader] : m_shaders)
         {
             if (shader.program)
@@ -573,6 +700,123 @@ namespace archi
                 glDeleteBuffers(1, &mesh.vbo);
         }
         m_meshes.clear();
+    }
+
+    bool OpenGLRenderAdapter::InitDebugObjects()
+    {
+        const unsigned int vs = CompileShader(GL_VERTEX_SHADER, kDebugVertexShader);
+        if (!vs)
+            return false;
+
+        const unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, kDebugFragmentShader);
+        if (!fs)
+        {
+            glDeleteShader(vs);
+            return false;
+        }
+
+        m_debugBox.program = LinkProgram(vs, fs);
+        glDeleteShader(vs);
+        glDeleteShader(fs);
+        if (!m_debugBox.program)
+            return false;
+
+        m_debugBox.uModelLoc = glGetUniformLocation(m_debugBox.program, "uModel");
+        m_debugBox.uViewLoc = glGetUniformLocation(m_debugBox.program, "uView");
+        m_debugBox.uProjectionLoc = glGetUniformLocation(m_debugBox.program, "uProjection");
+        m_debugBox.uColorLoc = glGetUniformLocation(m_debugBox.program, "uColor");
+
+        constexpr std::array<float, 24> boxVertices = {
+            -0.5f, -0.5f, -0.5f,
+             0.5f, -0.5f, -0.5f,
+             0.5f,  0.5f, -0.5f,
+            -0.5f,  0.5f, -0.5f,
+            -0.5f, -0.5f,  0.5f,
+             0.5f, -0.5f,  0.5f,
+             0.5f,  0.5f,  0.5f,
+            -0.5f,  0.5f,  0.5f
+        };
+
+        constexpr std::array<unsigned int, 24> boxIndices = {
+            0, 1, 1, 2, 2, 3, 3, 0,
+            4, 5, 5, 6, 6, 7, 7, 4,
+            0, 4, 1, 5, 2, 6, 3, 7
+        };
+
+        glGenBuffers(1, &m_debugBox.boxVbo);
+        glBindBuffer(GL_ARRAY_BUFFER, m_debugBox.boxVbo);
+        glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(boxVertices.size() * sizeof(float)), boxVertices.data(), GL_STATIC_DRAW);
+
+        glGenBuffers(1, &m_debugBox.boxEbo);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_debugBox.boxEbo);
+        glBufferData(
+            GL_ELEMENT_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(boxIndices.size() * sizeof(unsigned int)),
+            boxIndices.data(),
+            GL_STATIC_DRAW);
+
+        constexpr int kCircleSegments = 48;
+        std::vector<float> circleVertices{};
+        circleVertices.reserve(static_cast<std::size_t>(kCircleSegments) * 3u);
+        for (int segment = 0; segment < kCircleSegments; ++segment)
+        {
+            const float angle = (6.28318530718f * static_cast<float>(segment)) / static_cast<float>(kCircleSegments);
+            circleVertices.push_back(std::cos(angle) * 0.5f);
+            circleVertices.push_back(std::sin(angle) * 0.5f);
+            circleVertices.push_back(0.0f);
+        }
+
+        glGenBuffers(1, &m_debugBox.circleVbo);
+        glBindBuffer(GL_ARRAY_BUFFER, m_debugBox.circleVbo);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            static_cast<GLsizeiptr>(circleVertices.size() * sizeof(float)),
+            circleVertices.data(),
+            GL_STATIC_DRAW);
+        m_debugBox.circleVertexCount = kCircleSegments;
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+        for (auto& window : m_windows)
+        {
+            if (!window.window)
+                continue;
+
+            glfwMakeContextCurrent(window.window);
+            window.debugBoxVao = CreateDebugVaoForCurrentContext();
+            window.debugCircleVao = CreateDebugCircleVaoForCurrentContext();
+        }
+
+        return true;
+    }
+
+    void OpenGLRenderAdapter::DestroyDebugObjects()
+    {
+        for (auto& window : m_windows)
+        {
+            if (window.debugBoxVao)
+            {
+                glDeleteVertexArrays(1, &window.debugBoxVao);
+                window.debugBoxVao = 0;
+            }
+            if (window.debugCircleVao)
+            {
+                glDeleteVertexArrays(1, &window.debugCircleVao);
+                window.debugCircleVao = 0;
+            }
+        }
+
+        if (m_debugBox.boxEbo)
+            glDeleteBuffers(1, &m_debugBox.boxEbo);
+        if (m_debugBox.boxVbo)
+            glDeleteBuffers(1, &m_debugBox.boxVbo);
+        if (m_debugBox.circleVbo)
+            glDeleteBuffers(1, &m_debugBox.circleVbo);
+        if (m_debugBox.program)
+            glDeleteProgram(m_debugBox.program);
+
+        m_debugBox = {};
     }
 
     unsigned int OpenGLRenderAdapter::CreateVaoForCurrentContext(const MeshResource& mesh)
@@ -609,6 +853,34 @@ namespace archi
         return vao;
     }
 
+    unsigned int OpenGLRenderAdapter::CreateDebugVaoForCurrentContext()
+    {
+        unsigned int vao = 0;
+        glGenVertexArrays(1, &vao);
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, m_debugBox.boxVbo);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_debugBox.boxEbo);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+        glBindVertexArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        return vao;
+    }
+
+    unsigned int OpenGLRenderAdapter::CreateDebugCircleVaoForCurrentContext()
+    {
+        unsigned int vao = 0;
+        glGenVertexArrays(1, &vao);
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, m_debugBox.circleVbo);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
+        glBindVertexArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        return vao;
+    }
+
     void OpenGLRenderAdapter::DestroyWindowVaos(WindowData& window)
     {
         for (auto& [_, vao] : window.vaos)
@@ -617,6 +889,18 @@ namespace archi
                 glDeleteVertexArrays(1, &vao);
         }
         window.vaos.clear();
+
+        if (window.debugBoxVao)
+        {
+            glDeleteVertexArrays(1, &window.debugBoxVao);
+            window.debugBoxVao = 0;
+        }
+
+        if (window.debugCircleVao)
+        {
+            glDeleteVertexArrays(1, &window.debugCircleVao);
+            window.debugCircleVao = 0;
+        }
     }
 
     void OpenGLRenderAdapter::DestroyMeshVaos(MeshHandle meshHandle)

@@ -82,8 +82,10 @@ namespace archi
         ResourcePtr<TextureAsset> PlaceholderTexture() const { return m_placeholderTexture; }
         ResourcePtr<MaterialAsset> PlaceholderMaterial() const { return m_placeholderMaterial; }
         ResourcePtr<MaterialAsset> DefaultMaterial() const { return m_defaultMaterial; }
+        ResourcePtr<MeshAsset> BuiltInSphereMesh() const { return m_builtinSphereMesh; }
 
         void ForceReloadAll();
+        void ForceReloadShaders();
         void UpdateHotReload();
 
     private:
@@ -109,6 +111,7 @@ namespace archi
 
         ResourcePtr<MaterialAsset> UpsertGeneratedMaterial(const std::string& key, const MaterialAsset& material);
         ResourcePtr<MeshAsset> CreatePlaceholderMeshResource();
+        ResourcePtr<MeshAsset> CreateBuiltInSphereMeshResource();
         ResourcePtr<TextureAsset> CreatePlaceholderTextureResource();
         ResourcePtr<MaterialAsset> CreatePlaceholderMaterialResource();
         ResourcePtr<MaterialAsset> CreateDefaultMaterialResource();
@@ -116,8 +119,10 @@ namespace archi
     private:
         IRenderAdapter* m_renderer = nullptr;
         bool m_forceReloadAll = false;
+        bool m_forceShaderReload = false;
 
         ResourcePtr<MeshAsset> m_placeholderMesh{};
+        ResourcePtr<MeshAsset> m_builtinSphereMesh{};
         ResourcePtr<TextureAsset> m_placeholderTexture{};
         ResourcePtr<MaterialAsset> m_placeholderMaterial{};
         ResourcePtr<MaterialAsset> m_defaultMaterial{};

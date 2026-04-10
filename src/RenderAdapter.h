@@ -27,7 +27,11 @@ namespace archi
         N,
         R,
         K,
-        L
+        L,
+        M,
+        Space,
+        F3,
+        Count
     };
 
     enum class MouseButton
@@ -56,6 +60,22 @@ namespace archi
         bool useTexture = true;
     };
 
+    struct RenderDebugBoxCommand
+    {
+        Mat4 model = Mat4::Identity();
+        Mat4 view = Mat4::Identity();
+        Mat4 projection = Mat4::Identity();
+        Vec4 color{ 1.0f, 0.1f, 0.1f, 0.85f };
+    };
+
+    struct RenderDebugSphereCommand
+    {
+        Mat4 model = Mat4::Identity();
+        Mat4 view = Mat4::Identity();
+        Mat4 projection = Mat4::Identity();
+        Vec4 color{ 0.2f, 0.8f, 1.0f, 0.90f };
+    };
+
     class IRenderAdapter
     {
     public:
@@ -72,6 +92,8 @@ namespace archi
         virtual ShaderHandle CreateShaderProgram(const ShaderSource& shaderSource) = 0;
         virtual bool ReloadShaderProgram(ShaderHandle handle, const ShaderSource& shaderSource) = 0;
         virtual void DrawMesh(const RenderMeshCommand& command) = 0;
+        virtual void DrawDebugBox(const RenderDebugBoxCommand& command) = 0;
+        virtual void DrawDebugSphere(const RenderDebugSphereCommand& command) = 0;
         virtual void EndFrame() = 0;
 
         virtual void PollEvents() = 0;
@@ -88,6 +110,7 @@ namespace archi
 
         virtual bool IsKeyDown(Key key) const = 0;
         virtual bool IsMouseButtonDown(MouseButton button) const = 0;
+        virtual Vec2 MousePosition() const = 0;
 
         // Positive = wheel up, negative = wheel down. Returns accumulated delta and resets it to 0.
         virtual float ConsumeScrollDeltaY() = 0;

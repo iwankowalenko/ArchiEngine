@@ -117,9 +117,23 @@ namespace archi
         return std::sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
     }
 
+    inline float Length(const Vec2& v)
+    {
+        return std::sqrt(v.x * v.x + v.y * v.y);
+    }
+
     inline float Dot(const Vec3& lhs, const Vec3& rhs)
     {
         return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+    }
+
+    inline Vec3 Cross(const Vec3& lhs, const Vec3& rhs)
+    {
+        return {
+            lhs.y * rhs.z - lhs.z * rhs.y,
+            lhs.z * rhs.x - lhs.x * rhs.z,
+            lhs.x * rhs.y - lhs.y * rhs.x
+        };
     }
 
     inline Vec3 Normalize(const Vec3& v)
@@ -128,6 +142,24 @@ namespace archi
         if (len <= 0.0001f)
             return { 0.0f, 0.0f, 0.0f };
         return { v.x / len, v.y / len, v.z / len };
+    }
+
+    inline Vec2 Normalize(const Vec2& v)
+    {
+        const float len = Length(v);
+        if (len <= 0.0001f)
+            return { 0.0f, 0.0f };
+        return { v.x / len, v.y / len };
+    }
+
+    inline float Clamp(float value, float minValue, float maxValue)
+    {
+        return value < minValue ? minValue : (value > maxValue ? maxValue : value);
+    }
+
+    inline float Radians(float degrees)
+    {
+        return degrees * 0.01745329251994329577f;
     }
 
     inline Mat4 operator*(const Mat4& lhs, const Mat4& rhs)
@@ -254,6 +286,43 @@ namespace archi
     {
         const float halfWidth = halfHeight * aspectRatio;
         return MakeOrthographicMatrix(-halfWidth, halfWidth, -halfHeight, halfHeight, nearPlane, farPlane);
+    }
+
+    inline Mat4 MakePerspectiveProjection(float verticalFovRadians, float aspectRatio, float nearPlane, float farPlane)
+    {
+        const float tanHalfFov = std::tan(verticalFovRadians * 0.5f);
+
+        Mat4 result{};
+        result(0, 0) = 1.0f / (aspectRatio * tanHalfFov);
+        result(1, 1) = 1.0f / tanHalfFov;
+        result(2, 2) = -(farPlane + nearPlane) / (farPlane - nearPlane);
+        result(2, 3) = -(2.0f * farPlane * nearPlane) / (farPlane - nearPlane);
+        result(3, 2) = -1.0f;
+        return result;
+    }
+
+    inline Mat4 MakeLookAtMatrix(const Vec3& eye, const Vec3& target, const Vec3& up)
+    {
+        const Vec3 forward = Normalize(target - eye);
+        const Vec3 right = Normalize(Cross(forward, up));
+        const Vec3 recalculatedUp = Cross(right, forward);
+
+        Mat4 result = Mat4::Identity();
+        result(0, 0) = right.x;
+        result(0, 1) = right.y;
+        result(0, 2) = right.z;
+        result(0, 3) = -Dot(right, eye);
+
+        result(1, 0) = recalculatedUp.x;
+        result(1, 1) = recalculatedUp.y;
+        result(1, 2) = recalculatedUp.z;
+        result(1, 3) = -Dot(recalculatedUp, eye);
+
+        result(2, 0) = -forward.x;
+        result(2, 1) = -forward.y;
+        result(2, 2) = -forward.z;
+        result(2, 3) = Dot(forward, eye);
+        return result;
     }
 
     inline Vec3 TransformPoint(const Mat4& matrix, const Vec3& point)

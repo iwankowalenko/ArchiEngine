@@ -14,6 +14,8 @@ namespace archi
 {
     class IRenderAdapter;
     class ResourceManager;
+    class InputManager;
+    class EventBus;
 
     using EntityId = std::uint32_t;
     constexpr EntityId InvalidEntityId = 0;
@@ -53,6 +55,10 @@ namespace archi
     {
         IRenderAdapter* renderer = nullptr;
         ResourceManager* resources = nullptr;
+        InputManager* input = nullptr;
+        EventBus* events = nullptr;
+        Entity controlledEntity{};
+        bool debugPhysics = false;
         double deltaTime = 0.0;
     };
 

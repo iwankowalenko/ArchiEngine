@@ -35,6 +35,7 @@ namespace archi
         constexpr std::uint32_t kMeshCacheVersion = 2;
         constexpr std::uint32_t kTextureCacheVersion = 1;
         constexpr const char* kPlaceholderMeshKey = "builtin:mesh:placeholder";
+        constexpr const char* kBuiltInSphereMeshKey = "builtin:mesh:sphere";
         constexpr const char* kPlaceholderTextureKey = "builtin:texture:placeholder";
         constexpr const char* kPlaceholderMaterialKey = "builtin:material:placeholder";
         constexpr const char* kDefaultMaterialKey = "builtin:material:default";
@@ -508,6 +509,60 @@ namespace archi
             return mesh;
         }
 
+        MeshData CreateUvSphereMeshData(int slices, int stacks)
+        {
+            MeshData mesh{};
+            slices = std::max(8, slices);
+            stacks = std::max(4, stacks);
+
+            for (int stack = 0; stack <= stacks; ++stack)
+            {
+                const float v = static_cast<float>(stack) / static_cast<float>(stacks);
+                const float phi = 3.14159265359f * v;
+                const float y = std::cos(phi) * 0.5f;
+                const float ringRadius = std::sin(phi) * 0.5f;
+
+                for (int slice = 0; slice <= slices; ++slice)
+                {
+                    const float u = static_cast<float>(slice) / static_cast<float>(slices);
+                    const float theta = 6.28318530718f * u;
+                    const float x = std::cos(theta) * ringRadius;
+                    const float z = std::sin(theta) * ringRadius;
+
+                    const Vec3 position{ x, y, z };
+                    mesh.vertices.push_back({
+                        position,
+                        Normalize(position),
+                        { u, 1.0f - v }
+                    });
+                }
+            }
+
+            const int rowStride = slices + 1;
+            for (int stack = 0; stack < stacks; ++stack)
+            {
+                for (int slice = 0; slice < slices; ++slice)
+                {
+                    const std::uint32_t i0 = static_cast<std::uint32_t>(stack * rowStride + slice);
+                    const std::uint32_t i1 = i0 + 1;
+                    const std::uint32_t i2 = i0 + static_cast<std::uint32_t>(rowStride);
+                    const std::uint32_t i3 = i2 + 1;
+
+                    mesh.indices.push_back(i0);
+                    mesh.indices.push_back(i2);
+                    mesh.indices.push_back(i1);
+
+                    mesh.indices.push_back(i1);
+                    mesh.indices.push_back(i2);
+                    mesh.indices.push_back(i3);
+                }
+            }
+
+            mesh.boundsMin = { -0.5f, -0.5f, -0.5f };
+            mesh.boundsMax = { 0.5f, 0.5f, 0.5f };
+            return mesh;
+        }
+
         TextureData CreatePlaceholderTextureData()
         {
             TextureData texture{};
@@ -686,6 +741,11 @@ namespace archi
         m_forceReloadAll = true;
     }
 
+    void ResourceManager::ForceReloadShaders()
+    {
+        m_forceShaderReload = true;
+    }
+
     void ResourceManager::UpdateHotReload()
     {
         FinalizeAsyncLoads();
@@ -694,6 +754,7 @@ namespace archi
         UpdateMeshHotReload();
         UpdateTextureHotReload();
         m_forceReloadAll = false;
+        m_forceShaderReload = false;
     }
 
     std::string ResourceManager::NormalizeAssetKey(const std::string& path) const
@@ -744,6 +805,29 @@ namespace archi
         {
             resource->state = ResourceLoadState::Failed;
             resource->error = "Failed to upload placeholder mesh";
+        }
+
+        m_meshCache[resource->key] = resource;
+        return resource;
+    }
+
+    ResourcePtr<MeshAsset> ResourceManager::CreateBuiltInSphereMeshResource()
+    {
+        if (!m_renderer)
+            return nullptr;
+
+        auto resource = std::make_shared<Resource<MeshAsset>>();
+        resource->key = kBuiltInSphereMeshKey;
+        resource->state = ResourceLoadState::Ready;
+        resource->value.sourcePath = kBuiltInSphereMeshKey;
+        resource->value.mesh = CreateUvSphereMeshData(24, 16);
+        resource->value.gpuHandle = m_renderer->UploadMesh(resource->value.mesh);
+        resource->value.placeholder = false;
+        resource->value.hotReloadEnabled = false;
+        if (resource->value.gpuHandle == InvalidMeshHandle)
+        {
+            resource->state = ResourceLoadState::Failed;
+            resource->error = "Failed to upload built-in sphere mesh";
         }
 
         m_meshCache[resource->key] = resource;
@@ -819,6 +903,8 @@ namespace archi
 
         if (!m_placeholderMesh)
             m_placeholderMesh = CreatePlaceholderMeshResource();
+        if (!m_builtinSphereMesh)
+            m_builtinSphereMesh = CreateBuiltInSphereMeshResource();
         if (!m_placeholderTexture)
             m_placeholderTexture = CreatePlaceholderTextureResource();
     }
@@ -1433,7 +1519,7 @@ namespace archi
 
     void ResourceManager::UpdateShaderHotReload()
     {
-        const bool forceReload = m_forceReloadAll;
+        const bool forceReload = m_forceReloadAll || m_forceShaderReload;
 
         for (const auto& [key, resource] : m_shaderCache)
         {

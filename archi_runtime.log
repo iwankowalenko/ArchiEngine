@@ -1,0 +1,178 @@
+[20:00:24.378][INFO] Logger initialized. Combined log: archi.log | runtime log: archi_runtime.log | trace log: archi_trace.log
+[20:00:24.379][INFO] Application init...
+[20:00:24.511][INFO] OpenGL 3.3
+[20:00:24.515][INFO] Scene loaded from: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\scenes/physics_demo_scene.json
+[20:00:24.517][INFO] Loaded mesh from binary cache: models/cube.obj
+[20:00:24.517][INFO] Loaded material: materials/ground_brick.material.json
+[20:00:24.518][INFO] Loaded shader manifest: shaders/textured.shader.json
+[20:00:24.522][INFO] Loaded texture from binary cache: textures/red_brick_diff_1k.bmp
+[20:00:24.524][INFO] Loaded material: materials/build_material.json
+[20:00:24.525][INFO] Loaded material: materials/blue_metal.material.json
+[20:00:24.531][INFO] Loaded material: materials/sapeli_wood.material.json
+[20:00:24.533][INFO] Loaded material: materials/checker.material.json
+[20:00:24.534][INFO] Loaded material: materials/rusty_metal.material.json
+[20:00:24.539][INFO] Loaded texture from binary cache: textures/rusty_metal_05_diff_1k.bmp
+[20:00:24.541][INFO] Loaded material: materials/ball_metal.material.json
+[20:00:24.542][INFO] Loaded physics scene from JSON
+[20:00:24.542][INFO] Entering state: Loading
+[20:00:24.542][INFO] Loading resources (fake)...
+[20:00:24.542][INFO] Application init done
+[20:00:24.542][INFO] Application run...
+[20:00:24.545][INFO] Async mesh finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\models\pyramid.obj
+[20:00:24.545][INFO] Async mesh finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\models\cheburashka.obj
+[20:00:24.546][INFO] Async mesh finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\models\negr.obj
+[20:00:24.546][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\checker.bmp
+[20:00:24.547][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\blue_metal_plate_diff_1k.bmp
+[20:00:24.548][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\sapeli.bmp
+[20:00:24.549][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\metal2.bmp
+[20:00:24.652][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\metal.bmp
+[20:00:24.668][INFO] TRIGGER ENTER  | TriggerZone <-> Step | normal=(0.24, -0.00, 0.97) | penetration=0.147689 | firstPos=(1.70, 0.15, 1.40) | secondPos=(2.50, 0.06, 2.50)
+[20:00:24.668][INFO] TRIGGER ENTER  | TriggerZone <-> RollingBall | normal=(-0.00, -1.00, -0.00) | penetration=0.472275 | firstPos=(1.70, 0.15, 1.40) | secondPos=(1.70, -0.00, 1.40)
+[20:00:24.669][INFO] COLLISION ENTER | Ground <-> RollingBall | normal=(-0.00, 1.00, -0.00) | penetration=0.00224999
+[20:00:24.669][INFO] RESOLVE SHIFT  | Ground delta=(0.00, -0.00, 0.00) -> pos=(0.00, -1.00, 0.00) || RollingBall delta=(-0.00, 0.00, -0.00) -> pos=(1.70, -0.03, 1.40)
+[20:00:24.669][INFO] COLLISION ENTER | Ground <-> RollingBall | normal=(-0.00, 1.00, -0.00) | penetration=0.00392401
+[20:00:24.669][INFO] RESOLVE SHIFT  | Ground delta=(0.00, -0.00, 0.00) -> pos=(0.00, -1.00, 0.00) || RollingBall delta=(-0.00, 0.00, -0.00) -> pos=(1.70, -0.03, 1.40)
+[20:00:25.047][INFO] deltaTime (s) last frame: 0.0054416 | approx FPS: 183.769
+[20:00:25.198][INFO] COLLISION ENTER | Ground <-> Player | normal=(0.00, 1.00, 0.00) | penetration=0.0255002
+[20:00:25.198][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || Player delta=(0.00, 0.03, 0.00) -> pos=(0.00, -0.10, 0.00)
+[20:00:25.331][INFO] COLLISION ENTER | Ground <-> Statue | normal=(0.00, 1.00, 0.00) | penetration=0.0238001
+[20:00:25.331][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || Statue delta=(0.00, 0.02, 0.00) -> pos=(3.00, -0.05, -2.00)
+[20:00:25.365][INFO] COLLISION ENTER | Ground <-> Statue | normal=(0.00, 1.00, 0.00) | penetration=0.000490546
+[20:00:25.365][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || Statue delta=(0.00, 0.00, 0.00) -> pos=(3.00, -0.05, -2.00)
+[20:00:25.431][INFO] TRIGGER ENTER  | CrateA <-> TriggerZone | normal=(0.00, -1.00, 0.00) | penetration=0.0744752 | firstPos=(1.80, 0.60, 0.50) | secondPos=(1.70, 0.15, 1.40)
+[20:00:25.514][INFO] COLLISION ENTER | Ground <-> CrateA | normal=(0.00, 1.00, 0.00) | penetration=0.0374749
+[20:00:25.515][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateA delta=(0.00, 0.04, 0.00) -> pos=(1.80, -0.13, 0.50)
+[20:00:25.548][INFO] deltaTime (s) last frame: 0.0060993 | approx FPS: 163.953
+[20:00:25.548][INFO] Leaving state: Loading
+[20:00:25.548][INFO] Entering state: Menu
+[20:00:25.598][INFO] COLLISION ENTER | Ground <-> CrateA | normal=(0.00, 1.00, 0.00) | penetration=0.00136256
+[20:00:25.598][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateA delta=(0.00, 0.00, 0.00) -> pos=(1.80, -0.12, 0.50)
+[20:00:25.648][INFO] COLLISION ENTER | Ground <-> CrateB | normal=(0.00, 1.00, 0.00) | penetration=0.109974
+[20:00:25.648][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateB delta=(0.00, 0.11, 0.00) -> pos=(-2.00, 0.08, -1.20)
+[20:00:25.893][INFO] COLLISION ENTER | Ground <-> CrateB | normal=(0.00, 1.00, 0.00) | penetration=0.00327027
+[20:00:25.893][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateB delta=(0.00, 0.00, 0.00) -> pos=(-2.00, 0.08, -1.20)
+[20:00:26.053][INFO] deltaTime (s) last frame: 0.0054494 | approx FPS: 183.506
+[20:00:26.553][INFO] deltaTime (s) last frame: 0.0055438 | approx FPS: 180.382
+[20:00:27.053][INFO] deltaTime (s) last frame: 0.0056442 | approx FPS: 177.173
+[20:14:10.421][INFO] Logger initialized. Combined log: archi.log | runtime log: archi_runtime.log | trace log: archi_trace.log
+[20:14:10.421][INFO] Application init...
+[20:14:10.561][INFO] OpenGL 3.3
+[20:14:10.565][INFO] Scene saved to: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\scenes/physics_demo_scene.json
+[20:14:10.567][INFO] Loaded mesh from binary cache: models/cube.obj
+[20:14:10.568][INFO] Loaded material: materials/ground_brick.material.json
+[20:14:10.569][INFO] Loaded shader manifest: shaders/textured.shader.json
+[20:14:10.573][INFO] Loaded texture from binary cache: textures/red_brick_diff_1k.bmp
+[20:14:10.574][INFO] Loaded material: materials/build_material.json
+[20:14:10.575][INFO] Loaded material: materials/blue_metal.material.json
+[20:14:10.581][INFO] Loaded material: materials/sapeli_wood.material.json
+[20:14:10.583][INFO] Loaded material: materials/rusty_metal.material.json
+[20:14:10.585][INFO] Loaded material: materials/checker.material.json
+[20:14:10.588][INFO] Loaded material: materials/ball_metal.material.json
+[20:14:10.589][INFO] Entering state: Loading
+[20:14:10.589][INFO] Loading resources (fake)...
+[20:14:10.589][INFO] Application init done
+[20:14:10.589][INFO] Application run...
+[20:14:10.591][INFO] Async mesh finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\models\pyramid.obj
+[20:14:10.593][INFO] Async mesh finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\models\cheburashka.obj
+[20:14:10.593][INFO] Async mesh finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\models\negr.obj
+[20:14:10.593][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\checker.bmp
+[20:14:10.594][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\blue_metal_plate_diff_1k.bmp
+[20:14:10.596][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\sapeli.bmp
+[20:14:10.597][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\rusty_metal_05_diff_1k.bmp
+[20:14:10.598][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\metal2.bmp
+[20:14:10.716][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\metal.bmp
+[20:14:10.719][INFO] TRIGGER ENTER  | TriggerZone <-> Step | normal=(0.24, -0.00, 0.97) | penetration=0.147689 | firstPos=(1.70, 0.15, 1.40) | secondPos=(2.50, 0.06, 2.50)
+[20:14:10.719][INFO] TRIGGER ENTER  | TriggerZone <-> RollingBall | normal=(-0.00, -1.00, -0.00) | penetration=0.472275 | firstPos=(1.70, 0.15, 1.40) | secondPos=(1.70, -0.00, 1.40)
+[20:14:10.733][INFO] COLLISION ENTER | Ground <-> RollingBall | normal=(-0.00, 1.00, -0.00) | penetration=0.00224999
+[20:14:10.733][INFO] RESOLVE SHIFT  | Ground delta=(0.00, -0.00, 0.00) -> pos=(0.00, -1.00, 0.00) || RollingBall delta=(-0.00, 0.00, -0.00) -> pos=(1.70, -0.03, 1.40)
+[20:14:10.734][INFO] COLLISION ENTER | Ground <-> RollingBall | normal=(-0.00, 1.00, -0.00) | penetration=0.00392401
+[20:14:10.734][INFO] RESOLVE SHIFT  | Ground delta=(0.00, -0.00, 0.00) -> pos=(0.00, -1.00, 0.00) || RollingBall delta=(-0.00, 0.00, -0.00) -> pos=(1.70, -0.03, 1.40)
+[20:14:11.091][INFO] deltaTime (s) last frame: 0.0057025 | approx FPS: 175.362
+[20:14:11.108][INFO] COLLISION ENTER | Ground <-> LowFrictionBox | normal=(0.00, 1.00, 0.00) | penetration=0.0766007
+[20:14:11.108][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || LowFrictionBox delta=(0.00, 0.08, 0.00) -> pos=(-2.20, -0.08, -5.00)
+[20:14:11.109][INFO] COLLISION ENTER | Ground <-> MediumFrictionBox | normal=(0.00, 1.00, 0.00) | penetration=0.0766007
+[20:14:11.109][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || MediumFrictionBox delta=(0.00, 0.08, 0.00) -> pos=(0.00, -0.08, -5.00)
+[20:14:11.109][INFO] COLLISION ENTER | Ground <-> HighFrictionBox | normal=(0.00, 1.00, 0.00) | penetration=0.0766007
+[20:14:11.109][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || HighFrictionBox delta=(0.00, 0.08, 0.00) -> pos=(2.20, -0.08, -5.00)
+[20:14:11.242][INFO] COLLISION ENTER | Ground <-> Player | normal=(0.00, 1.00, 0.00) | penetration=0.0255002
+[20:14:11.242][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || Player delta=(0.00, 0.03, 0.00) -> pos=(0.00, -0.10, 0.00)
+[20:14:11.375][INFO] COLLISION ENTER | Ground <-> Statue | normal=(0.00, 1.00, 0.00) | penetration=0.0238001
+[20:14:11.376][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || Statue delta=(0.00, 0.02, 0.00) -> pos=(3.00, -0.05, -2.00)
+[20:14:11.408][INFO] COLLISION ENTER | Ground <-> Statue | normal=(0.00, 1.00, 0.00) | penetration=0.000490546
+[20:14:11.408][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || Statue delta=(0.00, 0.00, 0.00) -> pos=(3.00, -0.05, -2.00)
+[20:14:11.475][INFO] TRIGGER ENTER  | CrateA <-> TriggerZone | normal=(0.00, -1.00, 0.00) | penetration=0.0744752 | firstPos=(1.80, 0.60, 0.50) | secondPos=(1.70, 0.15, 1.40)
+[20:14:11.559][INFO] COLLISION ENTER | Ground <-> CrateA | normal=(0.00, 1.00, 0.00) | penetration=0.0374749
+[20:14:11.559][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateA delta=(0.00, 0.04, 0.00) -> pos=(1.80, -0.13, 0.50)
+[20:14:11.591][INFO] Leaving state: Loading
+[20:14:11.591][INFO] Entering state: Menu
+[20:14:11.597][INFO] deltaTime (s) last frame: 0.0055371 | approx FPS: 180.6
+[20:14:11.642][INFO] COLLISION ENTER | Ground <-> CrateA | normal=(0.00, 1.00, 0.00) | penetration=0.00136256
+[20:14:11.642][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateA delta=(0.00, 0.00, 0.00) -> pos=(1.80, -0.12, 0.50)
+[20:14:11.692][INFO] COLLISION ENTER | Ground <-> CrateB | normal=(0.00, 1.00, 0.00) | penetration=0.109974
+[20:14:11.692][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateB delta=(0.00, 0.11, 0.00) -> pos=(-2.00, 0.08, -1.20)
+[20:14:11.942][INFO] COLLISION ENTER | Ground <-> CrateB | normal=(0.00, 1.00, 0.00) | penetration=0.00327027
+[20:14:11.942][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateB delta=(0.00, 0.00, 0.00) -> pos=(-2.00, 0.08, -1.20)
+[20:14:12.102][INFO] deltaTime (s) last frame: 0.0056662 | approx FPS: 176.485
+[20:14:12.602][INFO] deltaTime (s) last frame: 0.0053059 | approx FPS: 188.469
+[20:14:13.108][INFO] deltaTime (s) last frame: 0.0055712 | approx FPS: 179.495
+[20:20:27.265][INFO] Logger initialized. Combined log: archi.log | runtime log: archi_runtime.log | trace log: archi_trace.log
+[20:20:27.265][INFO] Application init...
+[20:20:27.401][INFO] OpenGL 3.3
+[20:20:27.404][INFO] Scene saved to: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\scenes/physics_demo_scene.json
+[20:20:27.406][INFO] Loaded mesh from binary cache: models/cube.obj
+[20:20:27.407][INFO] Loaded material: materials/ground_brick.material.json
+[20:20:27.408][INFO] Loaded shader manifest: shaders/textured.shader.json
+[20:20:27.412][INFO] Loaded texture from binary cache: textures/red_brick_diff_1k.bmp
+[20:20:27.413][INFO] Loaded material: materials/build_material.json
+[20:20:27.414][INFO] Loaded material: materials/blue_metal.material.json
+[20:20:27.419][INFO] Loaded material: materials/sapeli_wood.material.json
+[20:20:27.421][INFO] Loaded material: materials/rusty_metal.material.json
+[20:20:27.424][INFO] Loaded material: materials/checker.material.json
+[20:20:27.426][INFO] Loaded material: materials/ball_metal.material.json
+[20:20:27.427][INFO] Entering state: Loading
+[20:20:27.427][INFO] Loading resources (fake)...
+[20:20:27.428][INFO] Application init done
+[20:20:27.428][INFO] Application run...
+[20:20:27.430][INFO] Async mesh finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\models\pyramid.obj
+[20:20:27.431][INFO] Async mesh finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\models\cheburashka.obj
+[20:20:27.431][INFO] Async mesh finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\models\negr.obj
+[20:20:27.432][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\checker.bmp
+[20:20:27.432][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\blue_metal_plate_diff_1k.bmp
+[20:20:27.434][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\sapeli.bmp
+[20:20:27.435][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\rusty_metal_05_diff_1k.bmp
+[20:20:27.436][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\metal2.bmp
+[20:20:27.493][INFO] Async texture finalized from binary cache: C:\Users\ivanm\source\repos\archi\ArchiEngine\assets\textures\metal.bmp
+[20:20:27.510][INFO] TRIGGER ENTER  | TriggerZone <-> Step | normal=(0.24, -0.00, 0.97) | penetration=0.147689 | firstPos=(1.70, 0.15, 1.40) | secondPos=(2.50, 0.06, 2.50)
+[20:20:27.510][INFO] TRIGGER ENTER  | TriggerZone <-> RollingBall | normal=(-0.00, -1.00, -0.00) | penetration=0.472275 | firstPos=(1.70, 0.15, 1.40) | secondPos=(1.70, -0.00, 1.40)
+[20:20:27.511][INFO] COLLISION ENTER | Ground <-> RollingBall | normal=(-0.00, 1.00, -0.00) | penetration=0.00224999
+[20:20:27.511][INFO] RESOLVE SHIFT  | Ground delta=(0.00, -0.00, 0.00) -> pos=(0.00, -1.00, 0.00) || RollingBall delta=(-0.00, 0.00, -0.00) -> pos=(1.70, -0.03, 1.40)
+[20:20:27.547][INFO] COLLISION ENTER | Ground <-> RollingBall | normal=(-0.00, 1.00, -0.00) | penetration=0.00392401
+[20:20:27.547][INFO] RESOLVE SHIFT  | Ground delta=(0.00, -0.00, 0.00) -> pos=(0.00, -1.00, 0.00) || RollingBall delta=(-0.00, 0.00, -0.00) -> pos=(1.70, -0.03, 1.40)
+[20:20:27.930][INFO] deltaTime (s) last frame: 0.0054648 | approx FPS: 182.989
+[20:20:27.947][INFO] COLLISION ENTER | Ground <-> LowFrictionBox | normal=(0.00, 1.00, 0.00) | penetration=0.0766007
+[20:20:27.947][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || LowFrictionBox delta=(0.00, 0.08, 0.00) -> pos=(-4.00, -0.08, 5.50)
+[20:20:27.948][INFO] COLLISION ENTER | Ground <-> MediumFrictionBox | normal=(0.00, 1.00, 0.00) | penetration=0.0766007
+[20:20:27.948][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || MediumFrictionBox delta=(0.00, 0.08, 0.00) -> pos=(0.00, -0.08, 5.50)
+[20:20:27.948][INFO] COLLISION ENTER | Ground <-> HighFrictionBox | normal=(0.00, 1.00, 0.00) | penetration=0.0766007
+[20:20:27.948][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || HighFrictionBox delta=(0.00, 0.08, 0.00) -> pos=(4.00, -0.08, 5.50)
+[20:20:28.081][INFO] COLLISION ENTER | Ground <-> Player | normal=(0.00, 1.00, 0.00) | penetration=0.0255002
+[20:20:28.081][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || Player delta=(0.00, 0.03, 0.00) -> pos=(0.00, -0.10, 0.00)
+[20:20:28.214][INFO] COLLISION ENTER | Ground <-> Statue | normal=(0.00, 1.00, 0.00) | penetration=0.0238001
+[20:20:28.214][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || Statue delta=(0.00, 0.02, 0.00) -> pos=(3.00, -0.05, -2.00)
+[20:20:28.247][INFO] COLLISION ENTER | Ground <-> Statue | normal=(0.00, 1.00, 0.00) | penetration=0.000490546
+[20:20:28.247][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || Statue delta=(0.00, 0.00, 0.00) -> pos=(3.00, -0.05, -2.00)
+[20:20:28.314][INFO] TRIGGER ENTER  | CrateA <-> TriggerZone | normal=(0.00, -1.00, 0.00) | penetration=0.0744752 | firstPos=(1.80, 0.60, 0.50) | secondPos=(1.70, 0.15, 1.40)
+[20:20:28.397][INFO] COLLISION ENTER | Ground <-> CrateA | normal=(0.00, 1.00, 0.00) | penetration=0.0374749
+[20:20:28.397][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateA delta=(0.00, 0.04, 0.00) -> pos=(1.80, -0.13, 0.50)
+[20:20:28.430][INFO] Leaving state: Loading
+[20:20:28.430][INFO] Entering state: Menu
+[20:20:28.435][INFO] deltaTime (s) last frame: 0.0057917 | approx FPS: 172.661
+[20:20:28.480][INFO] COLLISION ENTER | Ground <-> CrateA | normal=(0.00, 1.00, 0.00) | penetration=0.00136256
+[20:20:28.480][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateA delta=(0.00, 0.00, 0.00) -> pos=(1.80, -0.12, 0.50)
+[20:20:28.530][INFO] COLLISION ENTER | Ground <-> CrateB | normal=(0.00, 1.00, 0.00) | penetration=0.109974
+[20:20:28.530][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateB delta=(0.00, 0.11, 0.00) -> pos=(-2.00, 0.08, -1.20)
+[20:20:28.780][INFO] COLLISION ENTER | Ground <-> CrateB | normal=(0.00, 1.00, 0.00) | penetration=0.00327027
+[20:20:28.781][INFO] RESOLVE SHIFT  | Ground delta=(-0.00, -0.00, -0.00) -> pos=(0.00, -1.00, 0.00) || CrateB delta=(0.00, 0.00, 0.00) -> pos=(-2.00, 0.08, -1.20)
+[20:20:28.941][INFO] deltaTime (s) last frame: 0.0060382 | approx FPS: 165.612
+[20:20:29.446][INFO] deltaTime (s) last frame: 0.0055486 | approx FPS: 180.226
+[20:20:29.952][INFO] deltaTime (s) last frame: 0.0056946 | approx FPS: 175.605

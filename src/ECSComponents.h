@@ -30,18 +30,56 @@ namespace archi
         bool asyncLoad = true;
     };
 
+    enum class ColliderType
+    {
+        Aabb,
+        Sphere
+    };
+
+    struct Rigidbody
+    {
+        Vec3 velocity{ 0.0f, 0.0f, 0.0f };
+        Vec3 acceleration{ 0.0f, 0.0f, 0.0f };
+        float mass = 1.0f;
+        bool useGravity = true;
+        bool isStatic = false;
+        bool isGrounded = false;
+    };
+
+    struct Collider
+    {
+        ColliderType type = ColliderType::Aabb;
+        Vec3 halfExtents{ 0.5f, 0.5f, 0.5f };
+        Vec3 offset{ 0.0f, 0.0f, 0.0f };
+        float radius = 0.5f;
+        bool isTrigger = false;
+        float friction = 0.45f;
+        float bounciness = 0.0f;
+        Vec4 debugColor{ 1.0f, 0.2f, 0.2f, 0.75f };
+    };
+
     struct Camera
     {
         bool isPrimary = true;
+        bool usePerspective = true;
+        Vec3 forward{ 0.0f, 0.0f, -1.0f };
+        Vec3 up{ 0.0f, 1.0f, 0.0f };
+        float fovRadians = Radians(60.0f);
         float orthographicHalfHeight = 1.25f;
-        float nearPlane = -20.0f;
-        float farPlane = 20.0f;
+        float nearPlane = 0.1f;
+        float farPlane = 100.0f;
+        float yaw = -1.57079632679f;
+        float pitch = -0.26179938779f;
     };
 
     struct CameraController
     {
-        float moveSpeed = 2.2f;
+        float moveSpeed = 6.0f;
         float zoomSpeed = 1.2f;
+        float verticalSpeed = 4.0f;
+        float boostMultiplier = 2.0f;
+        float mouseSensitivity = 0.0035f;
+        bool requireMouseButtonToLook = true;
     };
 
     struct Hierarchy

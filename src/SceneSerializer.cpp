@@ -22,6 +22,8 @@ namespace archi
             std::optional<Tag> tag{};
             std::optional<Transform> transform{};
             std::optional<MeshRenderer> meshRenderer{};
+            std::optional<Rigidbody> rigidbody{};
+            std::optional<Collider> collider{};
             std::optional<Hierarchy> hierarchy{};
             std::optional<SpinAnimation> spinAnimation{};
             std::optional<Camera> camera{};
@@ -72,6 +74,21 @@ namespace archi
             if (!objectValue[key].is_string())
                 return defaultValue;
             return objectValue[key].get<std::string>();
+        }
+
+        std::string ColliderTypeToString(ColliderType type)
+        {
+            switch (type)
+            {
+            case ColliderType::Sphere: return "Sphere";
+            case ColliderType::Aabb:
+            default: return "AABB";
+            }
+        }
+
+        ColliderType ColliderTypeFromString(const std::string& typeName)
+        {
+            return typeName == "Sphere" ? ColliderType::Sphere : ColliderType::Aabb;
         }
 
         std::string LegacyPrimitiveToMeshAsset(const std::string& primitive)
@@ -175,7 +192,59 @@ namespace archi
                     return false;
                 }
 
+                // Migrate the old low-poly demo sphere to the built-in smooth sphere mesh.
+                if (mesh.meshAsset == "models/sphere.obj")
+                    mesh.meshAsset = "builtin:mesh:sphere";
+
                 outEntity.meshRenderer = mesh;
+            }
+
+            if (components.contains("Rigidbody"))
+            {
+                Rigidbody rigidbody{};
+                const json& value = components["Rigidbody"];
+                if (value.contains("velocity") && !ReadVec3(value["velocity"], rigidbody.velocity))
+                {
+                    outError = "Rigidbody.velocity is invalid";
+                    return false;
+                }
+                if (value.contains("acceleration") && !ReadVec3(value["acceleration"], rigidbody.acceleration))
+                {
+                    outError = "Rigidbody.acceleration is invalid";
+                    return false;
+                }
+                rigidbody.mass = value.value("mass", 1.0f);
+                rigidbody.useGravity = value.value("useGravity", true);
+                rigidbody.isStatic = value.value("isStatic", false);
+                rigidbody.isGrounded = value.value("isGrounded", false);
+                outEntity.rigidbody = rigidbody;
+            }
+
+            if (components.contains("Collider"))
+            {
+                Collider collider{};
+                const json& value = components["Collider"];
+                collider.type = ColliderTypeFromString(value.value("type", std::string("AABB")));
+                if (value.contains("halfExtents") && !ReadVec3(value["halfExtents"], collider.halfExtents))
+                {
+                    outError = "Collider.halfExtents is invalid";
+                    return false;
+                }
+                if (value.contains("offset") && !ReadVec3(value["offset"], collider.offset))
+                {
+                    outError = "Collider.offset is invalid";
+                    return false;
+                }
+                collider.radius = value.value("radius", 0.5f);
+                collider.isTrigger = value.value("isTrigger", false);
+                collider.friction = value.value("friction", 0.45f);
+                collider.bounciness = value.value("bounciness", 0.0f);
+                if (value.contains("debugColor") && !ReadVec4(value["debugColor"], collider.debugColor))
+                {
+                    outError = "Collider.debugColor is invalid";
+                    return false;
+                }
+                outEntity.collider = collider;
             }
 
             if (components.contains("Hierarchy"))
@@ -216,9 +285,23 @@ namespace archi
                 Camera camera{};
                 const json& value = components["Camera"];
                 camera.isPrimary = value.value("isPrimary", true);
+                camera.usePerspective = value.value("usePerspective", value.contains("fovRadians"));
                 camera.orthographicHalfHeight = value.value("orthographicHalfHeight", 1.25f);
-                camera.nearPlane = value.value("nearPlane", -20.0f);
-                camera.farPlane = value.value("farPlane", 20.0f);
+                camera.nearPlane = value.value("nearPlane", camera.usePerspective ? 0.1f : -20.0f);
+                camera.farPlane = value.value("farPlane", camera.usePerspective ? 100.0f : 20.0f);
+                camera.fovRadians = value.value("fovRadians", Radians(value.value("fovDegrees", 60.0f)));
+                camera.yaw = value.value("yaw", -1.57079632679f);
+                camera.pitch = value.value("pitch", -0.26179938779f);
+                if (value.contains("forward") && !ReadVec3(value["forward"], camera.forward))
+                {
+                    outError = "Camera.forward is invalid";
+                    return false;
+                }
+                if (value.contains("up") && !ReadVec3(value["up"], camera.up))
+                {
+                    outError = "Camera.up is invalid";
+                    return false;
+                }
                 outEntity.camera = camera;
             }
 
@@ -226,8 +309,12 @@ namespace archi
             {
                 CameraController controller{};
                 const json& value = components["CameraController"];
-                controller.moveSpeed = value.value("moveSpeed", 2.2f);
+                controller.moveSpeed = value.value("moveSpeed", 6.0f);
                 controller.zoomSpeed = value.value("zoomSpeed", 1.2f);
+                controller.verticalSpeed = value.value("verticalSpeed", 4.0f);
+                controller.boostMultiplier = value.value("boostMultiplier", 2.0f);
+                controller.mouseSensitivity = value.value("mouseSensitivity", 0.0035f);
+                controller.requireMouseButtonToLook = value.value("requireMouseButtonToLook", true);
                 outEntity.cameraController = controller;
             }
 
@@ -238,7 +325,7 @@ namespace archi
     bool SceneSerializer::SaveWorld(const World& world, const std::filesystem::path& path)
     {
         json root{};
-        root["version"] = 4;
+        root["version"] = 6;
         root["entities"] = json::array();
 
         world.ForEachEntity([&](Entity entity) {
@@ -271,6 +358,32 @@ namespace archi
                 };
             }
 
+            if (const auto* rigidbody = world.GetComponent<Rigidbody>(entity))
+            {
+                components["Rigidbody"] = {
+                    { "velocity", ToJson(rigidbody->velocity) },
+                    { "acceleration", ToJson(rigidbody->acceleration) },
+                    { "mass", rigidbody->mass },
+                    { "useGravity", rigidbody->useGravity },
+                    { "isStatic", rigidbody->isStatic },
+                    { "isGrounded", rigidbody->isGrounded }
+                };
+            }
+
+            if (const auto* collider = world.GetComponent<Collider>(entity))
+            {
+                components["Collider"] = {
+                    { "type", ColliderTypeToString(collider->type) },
+                    { "halfExtents", ToJson(collider->halfExtents) },
+                    { "offset", ToJson(collider->offset) },
+                    { "radius", collider->radius },
+                    { "isTrigger", collider->isTrigger },
+                    { "friction", collider->friction },
+                    { "bounciness", collider->bounciness },
+                    { "debugColor", ToJson(collider->debugColor) }
+                };
+            }
+
             if (const auto* hierarchy = world.GetComponent<Hierarchy>(entity))
             {
                 json children = json::array();
@@ -299,9 +412,15 @@ namespace archi
             {
                 components["Camera"] = {
                     { "isPrimary", camera->isPrimary },
+                    { "usePerspective", camera->usePerspective },
+                    { "forward", ToJson(camera->forward) },
+                    { "up", ToJson(camera->up) },
+                    { "fovRadians", camera->fovRadians },
                     { "orthographicHalfHeight", camera->orthographicHalfHeight },
                     { "nearPlane", camera->nearPlane },
-                    { "farPlane", camera->farPlane }
+                    { "farPlane", camera->farPlane },
+                    { "yaw", camera->yaw },
+                    { "pitch", camera->pitch }
                 };
             }
 
@@ -309,7 +428,11 @@ namespace archi
             {
                 components["CameraController"] = {
                     { "moveSpeed", controller->moveSpeed },
-                    { "zoomSpeed", controller->zoomSpeed }
+                    { "zoomSpeed", controller->zoomSpeed },
+                    { "verticalSpeed", controller->verticalSpeed },
+                    { "boostMultiplier", controller->boostMultiplier },
+                    { "mouseSensitivity", controller->mouseSensitivity },
+                    { "requireMouseButtonToLook", controller->requireMouseButtonToLook }
                 };
             }
 
@@ -401,6 +524,10 @@ namespace archi
                 world.AddComponent<Transform>(entity, *entityData.transform);
             if (entityData.meshRenderer)
                 world.AddComponent<MeshRenderer>(entity, *entityData.meshRenderer);
+            if (entityData.rigidbody)
+                world.AddComponent<Rigidbody>(entity, *entityData.rigidbody);
+            if (entityData.collider)
+                world.AddComponent<Collider>(entity, *entityData.collider);
             if (entityData.hierarchy)
                 world.AddComponent<Hierarchy>(entity);
             if (entityData.spinAnimation)
