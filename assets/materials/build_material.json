@@ -1,7 +1,12 @@
 {
+  "baseColor": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "hotReload": true,
   "shaderAsset": "shaders/textured.shader.json",
   "textureAsset": "textures/metal.bmp",
-  "baseColor": [ 1.0, 1.0, 1.0, 1.0 ],
-  "useTexture": true,
-  "hotReload": true
+  "useTexture": true
 }

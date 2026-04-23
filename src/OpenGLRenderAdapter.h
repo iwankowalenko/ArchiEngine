@@ -72,14 +72,24 @@ namespace archi
         float ConsumeScrollDeltaY() override;
 
         bool OpenAdditionalWindow(const RenderConfig& cfg, float clearR, float clearG, float clearB) override;
+        void* PrimaryWindowHandle() const override;
+        bool BeginViewportRender(int width, int height) override;
+        void EndViewportRender() override;
+        std::uintptr_t ViewportTextureHandle() const override;
+        bool BeginMaterialPreviewRender(int width, int height) override;
+        void EndMaterialPreviewRender() override;
+        std::uintptr_t MaterialPreviewTextureHandle() const override;
 
     private:
         struct WindowData;
+        struct ViewportRenderTarget;
 
         bool InitGLObjects();
         void DestroyGLObjects();
         bool InitDebugObjects();
         void DestroyDebugObjects();
+        bool EnsureViewportRenderTarget(int width, int height);
+        bool EnsureRenderTarget(ViewportRenderTarget& target, int width, int height);
 
         unsigned int CompileShader(unsigned int type, const char* src);
         unsigned int LinkProgram(unsigned int vs, unsigned int fs);
@@ -144,6 +154,15 @@ namespace archi
         std::unordered_map<TextureHandle, TextureResource> m_textures{};
         std::unordered_map<ShaderHandle, ShaderResource> m_shaders{};
         DebugBoxResource m_debugBox{};
+        struct ViewportRenderTarget
+        {
+            unsigned int fbo = 0;
+            unsigned int colorTexture = 0;
+            unsigned int depthStencilRbo = 0;
+            int width = 0;
+            int height = 0;
+            bool active = false;
+        } m_viewportTarget{}, m_materialPreviewTarget{};
     };
 }
 

@@ -1,0 +1,1136 @@
+{
+  "entities": [
+    {
+      "components": {
+        "Camera": {
+          "farPlane": 100.0,
+          "forward": [
+            -0.8337951302528381,
+            -0.5274240970611572,
+            0.16312426328659058
+          ],
+          "fovRadians": 1.0471975803375244,
+          "isPrimary": true,
+          "nearPlane": 0.10000000149011612,
+          "orthographicHalfHeight": 1.25,
+          "pitch": -0.5555657744407654,
+          "up": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "usePerspective": true,
+          "yaw": -3.3347930908203125
+        },
+        "CameraController": {
+          "boostMultiplier": 1.7999999523162842,
+          "mouseSensitivity": 0.0035000001080334187,
+          "moveSpeed": 6.5,
+          "requireMouseButtonToLook": true,
+          "verticalSpeed": 5.0,
+          "zoomSpeed": 1.2000000476837158
+        },
+        "Tag": {
+          "name": "MainCamera"
+        },
+        "Transform": {
+          "position": [
+            12.142855644226074,
+            6.416671276092529,
+            -0.4094166159629822
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "id": 53
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.019999999552965164,
+          "debugColor": [
+            1.0,
+            0.25,
+            0.25,
+            0.699999988079071
+          ],
+          "friction": 0.949999988079071,
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": false,
+          "materialAsset": "materials/tree_material.json",
+          "meshAsset": "models/cube.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": true,
+          "mass": 0.0,
+          "useGravity": false,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "Ground"
+        },
+        "Transform": {
+          "position": [
+            0.0,
+            -1.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            20.0,
+            1.0,
+            20.0
+          ]
+        }
+      },
+      "id": 54
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.0,
+          "debugColor": [
+            0.25,
+            1.0,
+            0.3499999940395355,
+            0.949999988079071
+          ],
+          "friction": 0.550000011920929,
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": true,
+          "materialAsset": "materials/blue_metal.material.json",
+          "meshAsset": "models/cube.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": false,
+          "mass": 1.0,
+          "useGravity": true,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "Player"
+        },
+        "Transform": {
+          "position": [
+            0.0,
+            2.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            0.800000011920929,
+            0.800000011920929,
+            0.800000011920929
+          ]
+        }
+      },
+      "id": 55
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.05000000074505806,
+          "debugColor": [
+            1.0,
+            0.20000000298023224,
+            0.20000000298023224,
+            0.75
+          ],
+          "friction": 0.6499999761581421,
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": true,
+          "materialAsset": "materials/blue_metal.material.json",
+          "meshAsset": "models/cube.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": false,
+          "mass": 1.0,
+          "useGravity": true,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "CrateA"
+        },
+        "Transform": {
+          "position": [
+            1.7999999523162842,
+            4.5,
+            0.5
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            0.75,
+            0.75,
+            0.75
+          ]
+        }
+      },
+      "id": 56
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.11999999731779099,
+          "debugColor": [
+            1.0,
+            0.20000000298023224,
+            0.20000000298023224,
+            0.75
+          ],
+          "friction": 0.5,
+          "halfExtents": [
+            0.550000011920929,
+            0.6499999761581421,
+            0.550000011920929
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": true,
+          "materialAsset": "materials/sapeli_wood.material.json",
+          "meshAsset": "models/pyramid.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": false,
+          "mass": 1.0,
+          "useGravity": true,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "CrateB"
+        },
+        "Transform": {
+          "position": [
+            -2.0,
+            6.0,
+            -1.2000000476837158
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            0.8999999761581421,
+            0.8999999761581421,
+            0.8999999761581421
+          ]
+        }
+      },
+      "id": 57
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.019999999552965164,
+          "debugColor": [
+            0.25,
+            0.8500000238418579,
+            1.0,
+            0.949999988079071
+          ],
+          "friction": 0.05000000074505806,
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": true,
+          "materialAsset": "materials/blue_metal.material.json",
+          "meshAsset": "models/cube.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": false,
+          "mass": 1.0,
+          "useGravity": true,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "LowFrictionBox"
+        },
+        "Transform": {
+          "position": [
+            -4.0,
+            1.2000000476837158,
+            5.5
+          ],
+          "rotation": [
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "scale": [
+            0.8500000238418579,
+            0.8500000238418579,
+            0.8500000238418579
+          ]
+        }
+      },
+      "id": 58
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.019999999552965164,
+          "debugColor": [
+            1.0,
+            0.8199999928474426,
+            0.3499999940395355,
+            0.949999988079071
+          ],
+          "friction": 0.44999998807907104,
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": true,
+          "materialAsset": "materials/sapeli_wood.material.json",
+          "meshAsset": "models/cube.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": false,
+          "mass": 1.0,
+          "useGravity": true,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "MediumFrictionBox"
+        },
+        "Transform": {
+          "position": [
+            2.447354316711426,
+            1.2000000476837158,
+            5.5
+          ],
+          "rotation": [
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "scale": [
+            0.8500000238418579,
+            0.8500000238418579,
+            0.8500000238418579
+          ]
+        }
+      },
+      "id": 59
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.019999999552965164,
+          "debugColor": [
+            1.0,
+            0.3499999940395355,
+            0.3499999940395355,
+            0.949999988079071
+          ],
+          "friction": 0.8999999761581421,
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": true,
+          "materialAsset": "materials/rusty_metal.material.json",
+          "meshAsset": "models/cube.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": false,
+          "mass": 1.0,
+          "useGravity": true,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "HighFrictionBox"
+        },
+        "Transform": {
+          "position": [
+            4.0,
+            1.2000000476837158,
+            5.5
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            0.8500000238418579,
+            0.8500000238418579,
+            0.8500000238418579
+          ]
+        }
+      },
+      "id": 60
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.029999999329447746,
+          "debugColor": [
+            1.0,
+            0.20000000298023224,
+            0.20000000298023224,
+            0.75
+          ],
+          "friction": 0.7200000286102295,
+          "halfExtents": [
+            0.75,
+            1.0,
+            0.6499999761581421
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": true,
+          "materialAsset": "materials/checker.material.json",
+          "meshAsset": "models/cheburashka.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            0.8500000238418579,
+            0.8500000238418579,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": false,
+          "mass": 1.600000023841858,
+          "useGravity": true,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "Statue"
+        },
+        "Transform": {
+          "position": [
+            3.0,
+            3.0,
+            -2.0
+          ],
+          "rotation": [
+            0.0,
+            0.44999998807907104,
+            0.0
+          ],
+          "scale": [
+            0.44999998807907104,
+            0.44999998807907104,
+            0.44999998807907104
+          ]
+        }
+      },
+      "id": 61
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.05000000074505806,
+          "debugColor": [
+            0.8999999761581421,
+            0.4000000059604645,
+            0.20000000298023224,
+            0.699999988079071
+          ],
+          "friction": 0.800000011920929,
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": false,
+          "materialAsset": "materials/rusty_metal.material.json",
+          "meshAsset": "models/cube.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": true,
+          "mass": 0.0,
+          "useGravity": false,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "Wall"
+        },
+        "Transform": {
+          "position": [
+            -3.5,
+            1.25,
+            -3.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            3.5,
+            0.800000011920929
+          ]
+        }
+      },
+      "id": 62
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.0,
+          "debugColor": [
+            1.0,
+            0.10000000149011612,
+            1.0,
+            0.8999999761581421
+          ],
+          "friction": 0.0,
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "isTrigger": true,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": false,
+          "materialAsset": "materials/blue_metal.material.json",
+          "meshAsset": "models/cube.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": true,
+          "mass": 0.0,
+          "useGravity": false,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "TriggerZone"
+        },
+        "Transform": {
+          "position": [
+            1.7000000476837158,
+            0.15000000596046448,
+            1.399999976158142
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.399999976158142,
+            0.30000001192092896,
+            1.399999976158142
+          ]
+        }
+      },
+      "id": 63
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.05000000074505806,
+          "debugColor": [
+            1.0,
+            0.25,
+            0.25,
+            0.75
+          ],
+          "friction": 0.44999998807907104,
+          "halfExtents": [
+            0.722000002861023,
+            1.059999942779541,
+            0.4950000047683716
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.1599999964237213,
+            0.14000000059604645
+          ],
+          "radius": 1.0,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": true,
+          "materialAsset": "materials/checker.material.json",
+          "meshAsset": "models/negr.obj",
+          "shaderAsset": "",
+          "textureAsset": "textures/blue_metal_plate_diff_1k.bmp",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": false,
+          "mass": 0.800000011920929,
+          "useGravity": true,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "Step"
+        },
+        "Transform": {
+          "position": [
+            2.5,
+            5.117000102996826,
+            2.5
+          ],
+          "rotation": [
+            0.0,
+            -0.1483529806137085,
+            0.0
+          ],
+          "scale": [
+            0.699999988079071,
+            0.699999988079071,
+            0.699999988079071
+          ]
+        }
+      },
+      "id": 64
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.3799999952316284,
+          "debugColor": [
+            0.30000001192092896,
+            0.8199999928474426,
+            1.0,
+            0.949999988079071
+          ],
+          "friction": 0.18000000715255737,
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "Sphere"
+        },
+        "MeshRenderer": {
+          "asyncLoad": true,
+          "materialAsset": "materials/ball_metal.material.json",
+          "meshAsset": "builtin:mesh:sphere",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": false,
+          "mass": 0.75,
+          "useGravity": true,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "RollingBall"
+        },
+        "Transform": {
+          "position": [
+            1.7000000476837158,
+            0.0,
+            1.399999976158142
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            0.949999988079071,
+            0.949999988079071,
+            0.949999988079071
+          ]
+        }
+      },
+      "id": 65
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.05000000074505806,
+          "debugColor": [
+            1.0,
+            0.25,
+            0.25,
+            0.75
+          ],
+          "friction": 0.44999998807907104,
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": true,
+          "materialAsset": "materials/checker.material.json",
+          "meshAsset": "models/cube.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": false,
+          "mass": 1.0,
+          "useGravity": true,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "cube"
+        },
+        "Transform": {
+          "position": [
+            -1.131669044494629,
+            5.330963134765625,
+            6.458281993865967
+          ],
+          "rotation": [
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "id": 66
+    },
+    {
+      "components": {
+        "Collider": {
+          "bounciness": 0.05000000074505806,
+          "debugColor": [
+            1.0,
+            0.25,
+            0.25,
+            0.75
+          ],
+          "friction": 0.44999998807907104,
+          "halfExtents": [
+            0.5,
+            0.5,
+            0.375
+          ],
+          "isTrigger": false,
+          "offset": [
+            0.0,
+            0.0,
+            0.375
+          ],
+          "radius": 0.5,
+          "type": "AABB"
+        },
+        "MeshRenderer": {
+          "asyncLoad": true,
+          "materialAsset": "materials/checker.material.json",
+          "meshAsset": "models/pyramid.obj",
+          "shaderAsset": "",
+          "textureAsset": "",
+          "tintColor": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "Rigidbody": {
+          "acceleration": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "isGrounded": false,
+          "isStatic": false,
+          "mass": 1.0,
+          "useGravity": true,
+          "velocity": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "Tag": {
+          "name": "pyramid"
+        },
+        "Transform": {
+          "position": [
+            -2.5858373641967773,
+            1.9331390857696533,
+            4.061956405639648
+          ],
+          "rotation": [
+            0.0,
+            -0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "id": 67
+    }
+  ],
+  "version": 6
+}

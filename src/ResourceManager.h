@@ -14,6 +14,15 @@ namespace archi
     class ResourceManager final
     {
     public:
+        struct CacheStats
+        {
+            std::size_t meshCount = 0;
+            std::size_t textureCount = 0;
+            std::size_t shaderCount = 0;
+            std::size_t materialCount = 0;
+            std::size_t approximateBytes = 0;
+        };
+
         struct PendingMeshLoad
         {
             std::string key{};
@@ -87,6 +96,7 @@ namespace archi
         void ForceReloadAll();
         void ForceReloadShaders();
         void UpdateHotReload();
+        CacheStats GetCacheStats() const;
 
     private:
         template <typename T>

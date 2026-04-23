@@ -14,6 +14,13 @@
 
 namespace archi
 {
+    class EditorLayer;
+    class CameraControllerSystem;
+    class SpinSystem;
+    class PhysicsSystem;
+    class RenderSystem;
+    class DebugRenderSystem;
+
     class Application final
     {
     public:
@@ -46,7 +53,19 @@ namespace archi
         bool SaveScene();
         bool LoadScene();
         bool ResetSceneToDefault();
+        bool SaveSceneToPath(const std::filesystem::path& path);
+        bool LoadSceneFromPath(const std::filesystem::path& path);
+        bool DeleteSceneEntity(Entity entity);
         void RequestShaderReload();
+        bool OpenAdditionalWindow();
+
+        bool EnterEditorPlayMode();
+        bool ExitEditorPlayMode();
+        bool IsEditorPlayMode() const { return m_editorPlayMode; }
+
+        std::size_t ActiveCollisionCount() const;
+        std::size_t LastRenderedObjectCount() const;
+        double LastRenderDurationMs() const;
 
         GameStateMachine& States() { return m_states; }
         const GameStateMachine& States() const { return m_states; }
@@ -80,6 +99,14 @@ namespace archi
         Entity m_controlledEntity{};
         std::filesystem::path m_scenePath{};
         double m_fixedUpdateAccumulator = 0.0;
+        bool m_editorPlayMode = false;
+        std::filesystem::path m_editorSnapshotPath{};
+        std::unique_ptr<EditorLayer> m_editor{};
+        CameraControllerSystem* m_cameraControllerSystem = nullptr;
+        SpinSystem* m_spinSystem = nullptr;
+        PhysicsSystem* m_physicsSystem = nullptr;
+        RenderSystem* m_renderSystem = nullptr;
+        DebugRenderSystem* m_debugRenderSystem = nullptr;
     };
 }
 

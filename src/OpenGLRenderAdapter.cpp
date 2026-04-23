@@ -443,6 +443,37 @@ namespace archi
                 texture = &textureIt->second;
         }
 
+        if (m_viewportTarget.active || m_materialPreviewTarget.active)
+        {
+            if (m_windows.empty() || !m_windows[0].window)
+                return;
+
+            glfwMakeContextCurrent(m_windows[0].window);
+            WindowData& window = m_windows[0];
+            const unsigned int vao = GetOrCreateVao(window, command.mesh, mesh);
+            if (vao == 0)
+                return;
+
+            glUseProgram(shader.program);
+            glUniformMatrix4fv(shader.uModelLoc, 1, GL_FALSE, command.model.data());
+            glUniformMatrix4fv(shader.uViewLoc, 1, GL_FALSE, command.view.data());
+            glUniformMatrix4fv(shader.uProjectionLoc, 1, GL_FALSE, command.projection.data());
+            glUniform4f(shader.uColorLoc, command.color.x, command.color.y, command.color.z, command.color.w);
+            glUniform1i(shader.uUseTextureLoc, texture ? 1 : 0);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture ? texture->glId : 0);
+            glUniform1i(shader.uTextureLoc, 0);
+
+            glBindVertexArray(vao);
+            if (mesh.indexed)
+                glDrawElements(mesh.drawMode, mesh.indexCount, GL_UNSIGNED_INT, nullptr);
+            else
+                glDrawArrays(mesh.drawMode, 0, mesh.vertexCount);
+            glBindVertexArray(0);
+            glBindTexture(GL_TEXTURE_2D, 0);
+            return;
+        }
+
         for (auto& window : m_windows)
         {
             if (!window.window)
@@ -480,6 +511,28 @@ namespace archi
 
         glDisable(GL_CULL_FACE);
 
+        if (m_viewportTarget.active || m_materialPreviewTarget.active)
+        {
+            if (m_windows.empty() || !m_windows[0].window || m_windows[0].debugBoxVao == 0)
+            {
+                glEnable(GL_CULL_FACE);
+                return;
+            }
+
+            glfwMakeContextCurrent(m_windows[0].window);
+            glUseProgram(m_debugBox.program);
+            glUniformMatrix4fv(m_debugBox.uModelLoc, 1, GL_FALSE, command.model.data());
+            glUniformMatrix4fv(m_debugBox.uViewLoc, 1, GL_FALSE, command.view.data());
+            glUniformMatrix4fv(m_debugBox.uProjectionLoc, 1, GL_FALSE, command.projection.data());
+            glUniform4f(m_debugBox.uColorLoc, command.color.x, command.color.y, command.color.z, command.color.w);
+            glBindVertexArray(m_windows[0].debugBoxVao);
+            glLineWidth(2.0f);
+            glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, nullptr);
+            glBindVertexArray(0);
+            glEnable(GL_CULL_FACE);
+            return;
+        }
+
         for (auto& window : m_windows)
         {
             if (!window.window || window.debugBoxVao == 0)
@@ -509,6 +562,38 @@ namespace archi
 
         const Mat4 rotateX = MakeRotationXMatrix(1.57079632679f);
         const Mat4 rotateY = MakeRotationYMatrix(1.57079632679f);
+
+        if (m_viewportTarget.active || m_materialPreviewTarget.active)
+        {
+            if (m_windows.empty() || !m_windows[0].window || m_windows[0].debugCircleVao == 0)
+            {
+                glEnable(GL_CULL_FACE);
+                return;
+            }
+
+            glfwMakeContextCurrent(m_windows[0].window);
+            glUseProgram(m_debugBox.program);
+            glUniformMatrix4fv(m_debugBox.uViewLoc, 1, GL_FALSE, command.view.data());
+            glUniformMatrix4fv(m_debugBox.uProjectionLoc, 1, GL_FALSE, command.projection.data());
+            glUniform4f(m_debugBox.uColorLoc, command.color.x, command.color.y, command.color.z, command.color.w);
+            glBindVertexArray(m_windows[0].debugCircleVao);
+            glLineWidth(2.0f);
+
+            glUniformMatrix4fv(m_debugBox.uModelLoc, 1, GL_FALSE, command.model.data());
+            glDrawArrays(GL_LINE_LOOP, 0, m_debugBox.circleVertexCount);
+
+            const Mat4 modelX = command.model * rotateX;
+            glUniformMatrix4fv(m_debugBox.uModelLoc, 1, GL_FALSE, modelX.data());
+            glDrawArrays(GL_LINE_LOOP, 0, m_debugBox.circleVertexCount);
+
+            const Mat4 modelY = command.model * rotateY;
+            glUniformMatrix4fv(m_debugBox.uModelLoc, 1, GL_FALSE, modelY.data());
+            glDrawArrays(GL_LINE_LOOP, 0, m_debugBox.circleVertexCount);
+
+            glBindVertexArray(0);
+            glEnable(GL_CULL_FACE);
+            return;
+        }
 
         for (auto& window : m_windows)
         {
@@ -669,6 +754,89 @@ namespace archi
         return true;
     }
 
+    void* OpenGLRenderAdapter::PrimaryWindowHandle() const
+    {
+        return (!m_windows.empty() && m_windows[0].window) ? m_windows[0].window : nullptr;
+    }
+
+    bool OpenGLRenderAdapter::BeginViewportRender(int width, int height)
+    {
+        if (m_windows.empty() || !m_windows[0].window || width <= 0 || height <= 0)
+            return false;
+
+        glfwMakeContextCurrent(m_windows[0].window);
+        if (!EnsureViewportRenderTarget(width, height))
+            return false;
+
+        glBindFramebuffer(GL_FRAMEBUFFER, m_viewportTarget.fbo);
+        glViewport(0, 0, width, height);
+        glEnable(GL_DEPTH_TEST);
+        glClearColor(0.08f, 0.08f, 0.10f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        m_viewportTarget.active = true;
+        return true;
+    }
+
+    void OpenGLRenderAdapter::EndViewportRender()
+    {
+        if (!m_viewportTarget.active)
+            return;
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        if (!m_windows.empty() && m_windows[0].window)
+        {
+            int width = 0;
+            int height = 0;
+            glfwGetFramebufferSize(m_windows[0].window, &width, &height);
+            glViewport(0, 0, width, height);
+        }
+        m_viewportTarget.active = false;
+    }
+
+    std::uintptr_t OpenGLRenderAdapter::ViewportTextureHandle() const
+    {
+        return static_cast<std::uintptr_t>(m_viewportTarget.colorTexture);
+    }
+
+    bool OpenGLRenderAdapter::BeginMaterialPreviewRender(int width, int height)
+    {
+        if (m_windows.empty() || !m_windows[0].window || width <= 0 || height <= 0)
+            return false;
+
+        glfwMakeContextCurrent(m_windows[0].window);
+        if (!EnsureRenderTarget(m_materialPreviewTarget, width, height))
+            return false;
+
+        glBindFramebuffer(GL_FRAMEBUFFER, m_materialPreviewTarget.fbo);
+        glViewport(0, 0, width, height);
+        glEnable(GL_DEPTH_TEST);
+        glClearColor(0.06f, 0.06f, 0.08f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        m_materialPreviewTarget.active = true;
+        return true;
+    }
+
+    void OpenGLRenderAdapter::EndMaterialPreviewRender()
+    {
+        if (!m_materialPreviewTarget.active)
+            return;
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        if (!m_windows.empty() && m_windows[0].window)
+        {
+            int width = 0;
+            int height = 0;
+            glfwGetFramebufferSize(m_windows[0].window, &width, &height);
+            glViewport(0, 0, width, height);
+        }
+        m_materialPreviewTarget.active = false;
+    }
+
+    std::uintptr_t OpenGLRenderAdapter::MaterialPreviewTextureHandle() const
+    {
+        return static_cast<std::uintptr_t>(m_materialPreviewTarget.colorTexture);
+    }
+
     bool OpenGLRenderAdapter::InitGLObjects()
     {
         return InitDebugObjects();
@@ -676,6 +844,30 @@ namespace archi
 
     void OpenGLRenderAdapter::DestroyGLObjects()
     {
+        auto destroyRenderTarget = [](ViewportRenderTarget& target) {
+            if (target.fbo)
+            {
+                glDeleteFramebuffers(1, &target.fbo);
+                target.fbo = 0;
+            }
+            if (target.colorTexture)
+            {
+                glDeleteTextures(1, &target.colorTexture);
+                target.colorTexture = 0;
+            }
+            if (target.depthStencilRbo)
+            {
+                glDeleteRenderbuffers(1, &target.depthStencilRbo);
+                target.depthStencilRbo = 0;
+            }
+            target.width = 0;
+            target.height = 0;
+            target.active = false;
+        };
+
+        destroyRenderTarget(m_viewportTarget);
+        destroyRenderTarget(m_materialPreviewTarget);
+
         DestroyDebugObjects();
 
         for (auto& [_, shader] : m_shaders)
@@ -700,6 +892,76 @@ namespace archi
                 glDeleteBuffers(1, &mesh.vbo);
         }
         m_meshes.clear();
+    }
+
+    bool OpenGLRenderAdapter::EnsureViewportRenderTarget(int width, int height)
+    {
+        return EnsureRenderTarget(m_viewportTarget, width, height);
+    }
+
+    bool OpenGLRenderAdapter::EnsureRenderTarget(ViewportRenderTarget& target, int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+            return false;
+
+        if (target.fbo != 0 &&
+            target.width == width &&
+            target.height == height)
+        {
+            return true;
+        }
+
+        if (target.fbo)
+        {
+            glDeleteFramebuffers(1, &target.fbo);
+            target.fbo = 0;
+        }
+        if (target.colorTexture)
+        {
+            glDeleteTextures(1, &target.colorTexture);
+            target.colorTexture = 0;
+        }
+        if (target.depthStencilRbo)
+        {
+            glDeleteRenderbuffers(1, &target.depthStencilRbo);
+            target.depthStencilRbo = 0;
+        }
+
+        glGenFramebuffers(1, &target.fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, target.fbo);
+
+        glGenTextures(1, &target.colorTexture);
+        glBindTexture(GL_TEXTURE_2D, target.colorTexture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, target.colorTexture, 0);
+
+        glGenRenderbuffers(1, &target.depthStencilRbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, target.depthStencilRbo);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+        glFramebufferRenderbuffer(
+            GL_FRAMEBUFFER,
+            GL_DEPTH_STENCIL_ATTACHMENT,
+            GL_RENDERBUFFER,
+            target.depthStencilRbo);
+
+        const bool complete = (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindRenderbuffer(GL_RENDERBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        if (!complete)
+        {
+            Logger::Error("Viewport framebuffer creation failed");
+            return false;
+        }
+
+        target.width = width;
+        target.height = height;
+        target.active = false;
+        return true;
     }
 
     bool OpenGLRenderAdapter::InitDebugObjects()

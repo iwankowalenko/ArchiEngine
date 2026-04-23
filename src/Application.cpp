@@ -1,11 +1,11 @@
 #include "Application.h"
 
 #include "AssetPaths.h"
+#include "EditorLayer.h"
 #include "ECSSystems.h"
 #include "Logger.h"
 #include "OpenGLRenderAdapter.h"
 #include "SceneSerializer.h"
-#include "States.h"
 
 #include <algorithm>
 #include <cmath>
@@ -107,15 +107,24 @@ namespace archi
     {
         if (m_scenePath.empty())
             m_scenePath = GetWritableAssetPath("scenes/physics_demo_scene.json");
-        return SceneSerializer::SaveWorld(m_world, m_scenePath);
+        return SaveSceneToPath(m_scenePath);
     }
 
     bool Application::LoadScene()
     {
         if (m_scenePath.empty())
             m_scenePath = GetWritableAssetPath("scenes/physics_demo_scene.json");
+        return LoadSceneFromPath(m_scenePath);
+    }
 
-        if (!SceneSerializer::LoadWorld(m_world, m_scenePath))
+    bool Application::SaveSceneToPath(const std::filesystem::path& path)
+    {
+        return SceneSerializer::SaveWorld(m_world, path);
+    }
+
+    bool Application::LoadSceneFromPath(const std::filesystem::path& path)
+    {
+        if (!SceneSerializer::LoadWorld(m_world, path))
             return false;
 
         RefreshSceneBindings();
@@ -123,6 +132,31 @@ namespace archi
         if (!warmedUp)
             Logger::Warn("Scene loaded, but some resources failed to warm up");
         return warmedUp;
+    }
+
+    bool Application::DeleteSceneEntity(Entity entity)
+    {
+        if (!m_world.IsAlive(entity))
+            return false;
+
+        const auto destroyRecursive = [&](auto&& self, Entity current) -> void {
+            if (!m_world.IsAlive(current))
+                return;
+
+            std::vector<Entity> children{};
+            if (const auto* hierarchy = m_world.GetComponent<Hierarchy>(current))
+                children = hierarchy->children;
+
+            for (Entity child : children)
+                self(self, child);
+
+            DetachFromParent(m_world, current);
+            m_world.DestroyEntity(current);
+        };
+
+        destroyRecursive(destroyRecursive, entity);
+        RefreshSceneBindings();
+        return true;
     }
 
     bool Application::ResetSceneToDefault()
@@ -142,10 +176,71 @@ namespace archi
         return warmedUp;
     }
 
+    bool Application::OpenAdditionalWindow()
+    {
+        if (!m_renderer)
+            return false;
+
+        const RenderConfig cfg{ 640, 480, "ArchiEngine", true };
+        return m_renderer->OpenAdditionalWindow(cfg, 0.08f, 0.03f, 0.16f);
+    }
+
     void Application::RequestShaderReload()
     {
         m_resources.ForceReloadShaders();
         Logger::Info("Shader reload requested");
+    }
+
+    bool Application::EnterEditorPlayMode()
+    {
+        if (m_editorPlayMode)
+            return true;
+
+        m_editorSnapshotPath = GetWritableAssetPath("scenes/.editor_play_snapshot.json");
+        if (!SaveSceneToPath(m_editorSnapshotPath))
+        {
+            Logger::Error("Failed to create editor play snapshot");
+            return false;
+        }
+
+        m_editorPlayMode = true;
+        Logger::Info("Editor switched to Play mode");
+        return true;
+    }
+
+    bool Application::ExitEditorPlayMode()
+    {
+        if (!m_editorPlayMode)
+            return true;
+
+        if (!m_editorSnapshotPath.empty() && std::filesystem::exists(m_editorSnapshotPath))
+        {
+            if (!LoadSceneFromPath(m_editorSnapshotPath))
+            {
+                Logger::Error("Failed to restore editor play snapshot");
+                return false;
+            }
+        }
+
+        m_fixedUpdateAccumulator = 0.0;
+        m_editorPlayMode = false;
+        Logger::Info("Editor switched to Edit mode");
+        return true;
+    }
+
+    std::size_t Application::ActiveCollisionCount() const
+    {
+        return m_physicsSystem ? m_physicsSystem->ActiveCollisionCount() : 0u;
+    }
+
+    std::size_t Application::LastRenderedObjectCount() const
+    {
+        return m_renderSystem ? m_renderSystem->LastVisibleObjectCount() : 0u;
+    }
+
+    double Application::LastRenderDurationMs() const
+    {
+        return m_renderSystem ? m_renderSystem->LastRenderDurationMs() : 0.0;
     }
 
     void Application::RefreshSceneBindings()
@@ -613,6 +708,12 @@ namespace archi
         m_input.BindAction("ResetScene", Key::M);
 
         m_resources.SetRenderAdapter(m_renderer.get());
+        m_editor = std::make_unique<EditorLayer>();
+        if (!m_editor->Init(*m_renderer))
+        {
+            Logger::Error("Editor layer init failed");
+            return false;
+        }
 
         m_events.Subscribe<CollisionEvent>([this](const CollisionEvent& event) {
             const std::string firstName = DescribeEntity(m_world, event.first);
@@ -659,11 +760,11 @@ namespace archi
                 FormatVec3(event.positionSecond));
         });
 
-        m_world.AddSystem<CameraControllerSystem>();
-        m_world.AddSystem<SpinSystem>();
-        m_world.AddSystem<PhysicsSystem>();
-        m_world.AddSystem<RenderSystem>();
-        m_world.AddSystem<DebugRenderSystem>();
+        m_cameraControllerSystem = &m_world.AddSystem<CameraControllerSystem>();
+        m_spinSystem = &m_world.AddSystem<SpinSystem>();
+        m_physicsSystem = &m_world.AddSystem<PhysicsSystem>();
+        m_renderSystem = &m_world.AddSystem<RenderSystem>();
+        m_debugRenderSystem = &m_world.AddSystem<DebugRenderSystem>();
 
         if (!LoadOrCreateScene())
         {
@@ -674,8 +775,7 @@ namespace archi
         m_timer.Reset();
         m_sceneUpdateEnabled = true;
         m_fixedUpdateAccumulator = 0.0;
-
-        m_states.ChangeState(*this, std::make_unique<LoadingState>());
+        m_editorPlayMode = false;
 
         m_initialized = true;
         Logger::Info("Application init done");
@@ -709,17 +809,11 @@ namespace archi
 
             m_renderer->PollEvents();
             m_input.Update(*m_renderer);
-
-            if (m_input.WasActionJustPressed("TogglePhysicsDebug"))
+            if (m_editor)
             {
-                TogglePhysicsDebug();
-                Logger::Info("Physics debug rendering: ", m_debugPhysicsEnabled ? "ON" : "OFF");
+                m_editor->BeginFrame();
+                m_editor->Build(*this, dt);
             }
-
-            if (auto* state = m_states.Current())
-                state->HandleInput(*this, dt);
-            if (auto* state = m_states.Current())
-                state->Update(*this, dt);
 
             m_resources.UpdateHotReload();
 
@@ -739,6 +833,10 @@ namespace archi
                         &m_events,
                         m_controlledEntity,
                         m_debugPhysicsEnabled,
+                        m_editor ? m_editor->IsPlayMode() : true,
+                        m_editor ? m_editor->AllowGameplayInput() : true,
+                        m_editor ? m_editor->AllowCameraInput() : true,
+                        m_editor ? m_editor->SceneAspectRatio() : 0.0f,
                         kFixedPhysicsStep
                     };
                     m_world.RunSystems(SystemPhase::Update, updateContext);
@@ -759,18 +857,29 @@ namespace archi
                 &m_events,
                 m_controlledEntity,
                 m_debugPhysicsEnabled,
+                m_editor ? m_editor->IsPlayMode() : true,
+                false,
+                false,
+                m_editor ? m_editor->SceneAspectRatio() : 0.0f,
                 dt
             };
-            m_world.RunSystems(SystemPhase::Render, renderContext);
-            if (auto* state = m_states.Current())
-                state->Render(*this, *m_renderer);
-            m_renderer->EndFrame();
 
-            if (m_states.Depth() == 0)
+            bool renderedToViewport = false;
+            if (m_editor && m_editor->HasViewport())
             {
-                Logger::Info("No states left -> quitting");
-                break;
+                renderedToViewport = m_renderer->BeginViewportRender(
+                    m_editor->ViewportWidth(),
+                    m_editor->ViewportHeight());
             }
+
+            m_world.RunSystems(SystemPhase::Render, renderContext);
+
+            if (renderedToViewport)
+                m_renderer->EndViewportRender();
+
+            if (m_editor)
+                m_editor->Render();
+            m_renderer->EndFrame();
         }
 
         Logger::Info("Application loop ended");
@@ -789,6 +898,18 @@ namespace archi
         m_world.ClearEntities();
         m_controlledEntity = {};
         m_fixedUpdateAccumulator = 0.0;
+        m_editorPlayMode = false;
+        m_cameraControllerSystem = nullptr;
+        m_spinSystem = nullptr;
+        m_physicsSystem = nullptr;
+        m_renderSystem = nullptr;
+        m_debugRenderSystem = nullptr;
+
+        if (m_editor)
+        {
+            m_editor->Shutdown();
+            m_editor.reset();
+        }
 
         if (m_renderer)
         {
