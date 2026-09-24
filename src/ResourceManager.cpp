@@ -757,6 +757,53 @@ namespace archi
         m_forceShaderReload = false;
     }
 
+    ResourceManager::CacheStats ResourceManager::GetCacheStats() const
+    {
+        CacheStats stats{};
+        stats.meshCount = m_meshCache.size();
+        stats.textureCount = m_textureCache.size();
+        stats.shaderCount = m_shaderCache.size();
+        stats.materialCount = m_materialCache.size();
+
+        for (const auto& [_, resource] : m_meshCache)
+        {
+            if (!resource)
+                continue;
+            stats.approximateBytes +=
+                resource->value.mesh.vertices.size() * sizeof(Vertex) +
+                resource->value.mesh.indices.size() * sizeof(std::uint32_t);
+        }
+
+        for (const auto& [_, resource] : m_textureCache)
+        {
+            if (!resource)
+                continue;
+            const std::size_t width = static_cast<std::size_t>(std::max(resource->value.width, 0));
+            const std::size_t height = static_cast<std::size_t>(std::max(resource->value.height, 0));
+            const std::size_t channels = static_cast<std::size_t>(std::max(resource->value.channels, 0));
+            stats.approximateBytes += width * height * channels;
+        }
+
+        for (const auto& [_, resource] : m_materialCache)
+        {
+            if (!resource)
+                continue;
+            stats.approximateBytes +=
+                resource->value.shaderAsset.size() +
+                resource->value.textureAsset.size() +
+                sizeof(MaterialAsset);
+        }
+
+        for (const auto& [_, resource] : m_shaderCache)
+        {
+            if (!resource)
+                continue;
+            stats.approximateBytes += sizeof(ShaderAsset);
+        }
+
+        return stats;
+    }
+
     std::string ResourceManager::NormalizeAssetKey(const std::string& path) const
     {
         if (path.empty())

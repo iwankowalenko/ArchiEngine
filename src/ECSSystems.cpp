@@ -8,6 +8,7 @@
 #include "ResourceManager.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <map>
 #include <set>
@@ -637,7 +638,7 @@ namespace archi
 
     void CameraControllerSystem::Update(World& world, const SystemContext& context)
     {
-        if (!context.input)
+        if (!context.input || !context.allowCameraInput)
             return;
 
         const float dt = static_cast<float>(context.deltaTime);
@@ -704,6 +705,9 @@ namespace archi
 
     void SpinSystem::Update(World& world, const SystemContext& context)
     {
+        if (!context.playMode)
+            return;
+
         const float dt = static_cast<float>(context.deltaTime);
         if (dt <= 0.0f)
             return;
@@ -725,6 +729,12 @@ namespace archi
 
     void PhysicsSystem::Update(World& world, const SystemContext& context)
     {
+        if (!context.playMode)
+        {
+            m_previousCollisionPairs.clear();
+            return;
+        }
+
         const float dt = static_cast<float>(context.deltaTime);
         if (dt <= 0.0f)
             return;
@@ -734,7 +744,7 @@ namespace archi
         SelectActiveCamera(world, activeCamera, activeCameraTransform);
 
         world.ForEach<Transform, Rigidbody>([&](Entity entity, Transform& transform, Rigidbody& body) {
-            if (entity == context.controlledEntity && context.input)
+            if (entity == context.controlledEntity && context.input && context.allowGameplayInput)
             {
                 Vec3 movementDirection{ 0.0f, 0.0f, 0.0f };
 
@@ -912,6 +922,7 @@ namespace archi
         if (!context.renderer || !context.resources)
             return;
 
+        const auto renderStart = std::chrono::high_resolution_clock::now();
         std::map<EntityId, Mat4> matrixCache{};
         std::set<EntityId> recursionStack{};
 
@@ -919,7 +930,8 @@ namespace archi
         const Transform* activeCameraTransform = nullptr;
         SelectActiveCamera(world, activeCamera, activeCameraTransform);
 
-        const float aspectRatio = context.renderer->AspectRatio();
+        const float aspectRatio =
+            context.sceneAspectRatio > 0.0f ? context.sceneAspectRatio : context.renderer->AspectRatio();
         const Mat4 view = BuildCameraView(activeCamera, activeCameraTransform);
         const Mat4 projection = BuildCameraProjection(activeCamera, aspectRatio);
         const bool usePerspective = activeCamera ? activeCamera->usePerspective : false;
@@ -1023,6 +1035,7 @@ namespace archi
 
         std::sort(visibleEntities.begin(), visibleEntities.end(), [](Entity lhs, Entity rhs) { return lhs.id < rhs.id; });
 
+        std::size_t drawnCount = 0;
         for (const Entity entity : visibleEntities)
         {
             const auto it = preparedItems.find(entity.id);
@@ -1032,7 +1045,14 @@ namespace archi
                 continue;
 
             context.renderer->DrawMesh(it->second.command);
+            ++drawnCount;
         }
+
+        m_lastVisibleObjectCount = drawnCount;
+
+        const auto renderEnd = std::chrono::high_resolution_clock::now();
+        m_lastRenderDurationMs =
+            std::chrono::duration<double, std::milli>(renderEnd - renderStart).count();
     }
 
     void DebugRenderSystem::Update(World& world, const SystemContext& context)
@@ -1044,8 +1064,10 @@ namespace archi
         const Transform* activeCameraTransform = nullptr;
         SelectActiveCamera(world, activeCamera, activeCameraTransform);
 
+        const float aspectRatio =
+            context.sceneAspectRatio > 0.0f ? context.sceneAspectRatio : context.renderer->AspectRatio();
         const Mat4 view = BuildCameraView(activeCamera, activeCameraTransform);
-        const Mat4 projection = BuildCameraProjection(activeCamera, context.renderer->AspectRatio());
+        const Mat4 projection = BuildCameraProjection(activeCamera, aspectRatio);
 
         world.ForEach<Transform, Collider>([&](Entity entity, Transform& transform, Collider& collider) {
             const Vec4 color = entity == context.controlledEntity

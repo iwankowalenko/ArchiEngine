@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <string>
 
 #include "Math2D.h"
@@ -119,6 +120,39 @@ namespace archi
         virtual bool OpenAdditionalWindow(const RenderConfig& /*cfg*/, float /*clearR*/, float /*clearG*/, float /*clearB*/)
         {
             return false;
+        }
+
+        virtual void* PrimaryWindowHandle() const
+        {
+            return nullptr;
+        }
+
+        virtual bool BeginViewportRender(int /*width*/, int /*height*/)
+        {
+            return false;
+        }
+
+        virtual void EndViewportRender()
+        {
+        }
+
+        virtual std::uintptr_t ViewportTextureHandle() const
+        {
+            return 0;
+        }
+
+        virtual bool BeginMaterialPreviewRender(int /*width*/, int /*height*/)
+        {
+            return false;
+        }
+
+        virtual void EndMaterialPreviewRender()
+        {
+        }
+
+        virtual std::uintptr_t MaterialPreviewTextureHandle() const
+        {
+            return 0;
         }
 
         virtual void RequestShaderReload() {}

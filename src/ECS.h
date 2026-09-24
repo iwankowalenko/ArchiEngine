@@ -59,6 +59,10 @@ namespace archi
         EventBus* events = nullptr;
         Entity controlledEntity{};
         bool debugPhysics = false;
+        bool playMode = true;
+        bool allowGameplayInput = true;
+        bool allowCameraInput = true;
+        float sceneAspectRatio = 0.0f;
         double deltaTime = 0.0;
     };
 

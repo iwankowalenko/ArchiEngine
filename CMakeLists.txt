@@ -8,7 +8,19 @@ file(GLOB_RECURSE ARCHI_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
 )
 
-add_executable(${PROJECT_NAME} ${ARCHI_SOURCES})
+set(IMGUI_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui_draw.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui_tables.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui_widgets.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/imgui_demo.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends/imgui_impl_glfw.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends/imgui_impl_opengl3.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/misc/cpp/imgui_stdlib.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/ImGuizmo/ImGuizmo.cpp"
+)
+
+add_executable(${PROJECT_NAME} ${ARCHI_SOURCES} ${IMGUI_SOURCES})
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
 
@@ -50,7 +62,13 @@ target_include_directories(stb_headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/ex
 target_include_directories(${PROJECT_NAME} PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/external/glfw/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/external/glad/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/misc/cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/external/ImGuizmo"
 )
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE IMGUI_IMPL_OPENGL_LOADER_GLAD)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
     nlohmann_json::nlohmann_json
